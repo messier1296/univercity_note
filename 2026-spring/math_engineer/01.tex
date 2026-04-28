@@ -1,0 +1,198 @@
+\documentclass[12pt]{ltjsarticle}
+
+\usepackage{luatexja}
+\usepackage{amsmath,amssymb}
+\usepackage{longtable,booktabs,array}
+
+\title{sample}
+\author{隼人 今村}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{班員の紹介}
+
+{\def\LTcaptype{none}
+\begin{longtable}[]{@{}lllll@{}}
+\toprule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+名前 & 学年 & 出身 & 気になっていること & つくば市のおすすめスポット \\
+小倉 & 3 & 神奈川県 & パズル & 筑波山 \\
+櫻井 & 3 & 茨城県 & ポーカー & えびすや \\
+村田 & 3 & 埼玉県 & ロードバイク & りんりんロード \\
+\end{longtable}
+}
+
+\section{階層分析}
+
+階層分析法（AHP）は、複数の基準をもつ意思決定問題を
+\textbf{階層構造}・\textbf{一対比較}・\textbf{総合評価}
+によって整理する手法である。
+
+\subsection{基本の流れ}
+
+\begin{itemize}
+\item 目的を定める
+\item 評価基準を設定する
+\item 代替案を比較する
+\item 重みを求めて総合評価する
+\end{itemize}
+
+\subsection{階層構造の例}
+
+\[
+\text{目的} \rightarrow \text{評価基準} \rightarrow \text{代替案}
+\]
+
+\begin{itemize}
+\item 第1階層：目的
+\item 第2階層：評価基準
+\item 第3階層：代替案
+\end{itemize}
+
+\subsection{一対比較}
+
+比較行列を \(A = \left( a_{ij} \right)\) とすると、各成分は対象 \(i\)
+の対象 \(j\) に対する重要度を表す。
+
+\[
+A = \begin{pmatrix}
+1 & a_{12} & \ldots & a_{1n} \\
+\frac{1}{a_{12}} & 1 & \ldots & a_{2n} \\
+\vdots & \vdots & \ddots & \vdots \\
+\frac{1}{a_{1n}} & \frac{1}{a_{2n}} & \ldots & 1
+\end{pmatrix}
+\]
+
+性質は次の通りである。
+
+\begin{itemize}
+\item \(a_{ii} = 1\)
+\item \(a_{ji} = \frac{1}{a_{ij}}\)
+\item 比較尺度には \(1,3,5,7,9\) とその逆数を用いる
+\end{itemize}
+
+\subsection{重みの計算}
+
+\subsubsection{固有値法}
+
+最大固有値に対応する固有ベクトルを用いて重みを求める。
+
+\[
+Aw = \lambda_{\text{max}} w
+\]
+
+\[
+\sum_{i=1}^{n} w_i = 1
+\]
+
+\subsubsection{幾何平均法}
+
+各行の幾何平均を使って重みを求める。
+
+\[
+g_i = \sqrt[n]{\prod_{j=1}^{n} a_{ij}}
+\]
+
+\[
+w_i = \frac{g_i}{\sum_{j=1}^{n} g_j}
+\]
+
+\subsection{整合性指標}
+
+比較の一貫性は CI によって確認する。
+
+\[
+CI = \frac{\lambda_{\text{max}} - n}{n - 1}
+\]
+
+\begin{itemize}
+\item \(CI = 0\) に近いほど整合性が高い
+\item 大きい場合は再評価が必要になる
+\end{itemize}
+
+\subsection{例：今日の献立}
+
+評価基準と代替案を次のようにする。
+
+{\def\LTcaptype{none}
+\begin{longtable}{@{}p{0.38\linewidth}p{0.28\linewidth}p{0.28\linewidth}@{}}
+\toprule\noalign{}
+項目 & 内容 & 例 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+目的 & 献立を選ぶ & 今日の献立 \\
+基準 & 値段・満足感・季節感 & 3基準 \\
+代替案 & 候補メニュー & カレー / カツ丼 / ハンバーグ \\
+\end{longtable}
+}
+
+基準の重みを次のようにする。
+
+{\def\LTcaptype{none}
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+値段 & ガッツリ感 & 季節感 & 合計 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\(0.19\) & \(0.08\) & \(0.73\) & \(1.00\) \\
+\end{longtable}
+}
+
+各代替案の総合評価を \(W_t\) とすると、重み付き和で表せる。
+
+\[
+W_t = W_p w_t^p + W_q w_t^q + W_r w_t^r
+\]
+
+評価例を表にすると次のようになる。
+
+{\def\LTcaptype{none}
+\begin{longtable}[]{@{}lllll@{}}
+\toprule\noalign{}
+代替案 & 値段 & ガッツリ感 & 季節感 & 総合評価 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+カレーライス & \(0.73\) & \(0.26\) & \(0.66\) & \(0.64\) \\
+カツ丼 & \(0.19\) & \(0.64\) & \(0.16\) & \(0.20\) \\
+ハンバーグ & \(0.08\) & \(0.10\) & \(0.18\) & \(0.16\) \\
+\end{longtable}
+}
+
+\subsection{まとめ}
+
+AHP では、次のような流れで意思決定を整理できる。
+
+\begin{enumerate}
+\item 階層を作る
+\item 一対比較を行う
+\item 重みを求める
+\item 総合評価で順位を決める
+\end{enumerate}
+\subsection{フォントの変更}
+
+フォントの変更（{\rmfamily Roman}）
+
+フォントの変更（{\sffamily Sans Serif}）
+
+フォントの変更（{\ttfamily Typewriter}）
+
+\subsection{フォントサイズの変更}
+
+フォントサイズの変更（{\small 小さい文字}）
+
+フォントサイズの変更（{\Large 大きい文字}）
+
+フォントサイズの変更（{\Huge とても大きい文字}）
+
+\end{document}

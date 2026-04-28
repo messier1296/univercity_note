@@ -1,0 +1,64 @@
+# このファイルをコピペする
+# nameとdescriptionは必ず変更する
+# dependenciesとdependency-groupsはruff,pyrightだけ残す
+# jupyter notebookを使いたい場合は ipykernelとjupyter,jupyter-serverを必ずaddすること
+
+[project]
+name = "university"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ipykernel>=7.2.0",
+    "jupyter>=1.1.1",
+    "jupyter-server>=2.17.0",
+    "nbformat>=5.10.4",
+    "pandas>=3.0.2",
+    "pulp>=3.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.10.1",
+    "pandas>=2.2.3",
+    "pandas-stubs>=2.2.3.241126",
+    "pyright>=1.1.390",
+    "ruff>=0.8.0",
+    "scipy>=1.15.1",
+    "scipy-stubs>=1.15.1.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+    "UP",
+]
+ignore = [
+    "T201",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+include = [
+    ".",
+]
+useLibraryCodeForTypes = true
+reportMissingTypeStubs = "none"
+reportMissingImports = true
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "warning"
+reportUnknownArgumentType = "warning"
