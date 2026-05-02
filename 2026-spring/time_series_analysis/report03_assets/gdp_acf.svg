@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="430" viewBox="0 0 760 430">
+<style>text{font-family:"Noto Sans CJK JP","Noto Sans",sans-serif;fill:#263142;font-size:13px}.title{font-size:20px;font-weight:700}.axis{stroke:#526173;stroke-width:1}.grid{stroke:#d8dee8;stroke-width:1}.bar{stroke:#1f77b4;stroke-width:7}.bound{stroke:#d95f02;stroke-width:1.6;stroke-dasharray:7 5}</style>
+<text class="title" x="380.0" y="28" text-anchor="middle">対数差分系列のコレログラム</text>
+<line class="grid" x1="70" y1="375.00" x2="730" y2="375.00"/>
+<text x="62" y="379.00" text-anchor="end">-0.350</text>
+<line class="grid" x1="70" y1="309.00" x2="730" y2="309.00"/>
+<text x="62" y="313.00" text-anchor="end">-0.210</text>
+<line class="grid" x1="70" y1="243.00" x2="730" y2="243.00"/>
+<text x="62" y="247.00" text-anchor="end">-0.070</text>
+<line class="grid" x1="70" y1="177.00" x2="730" y2="177.00"/>
+<text x="62" y="181.00" text-anchor="end">0.070</text>
+<line class="grid" x1="70" y1="111.00" x2="730" y2="111.00"/>
+<text x="62" y="115.00" text-anchor="end">0.210</text>
+<line class="grid" x1="70" y1="45.00" x2="730" y2="45.00"/>
+<text x="62" y="49.00" text-anchor="end">0.350</text>
+<line class="axis" x1="70" y1="210.00" x2="730" y2="210.00"/>
+<line class="axis" x1="70" y1="45" x2="70" y2="375"/>
+<line class="bound" x1="70" y1="128.01" x2="730" y2="128.01"/>
+<line class="bound" x1="70" y1="291.99" x2="730" y2="291.99"/>
+<line class="bar" x1="70.00" y1="210.00" x2="70.00" y2="251.74"/>
+<text x="70.00" y="399" text-anchor="middle">1</text>
+<line class="bar" x1="143.33" y1="210.00" x2="143.33" y2="135.04"/>
+<text x="143.33" y="399" text-anchor="middle">2</text>
+<line class="bar" x1="216.67" y1="210.00" x2="216.67" y2="285.76"/>
+<text x="216.67" y="399" text-anchor="middle">3</text>
+<line class="bar" x1="290.00" y1="210.00" x2="290.00" y2="261.19"/>
+<text x="290.00" y="399" text-anchor="middle">4</text>
+<line class="bar" x1="363.33" y1="210.00" x2="363.33" y2="226.86"/>
+<text x="363.33" y="399" text-anchor="middle">5</text>
+<line class="bar" x1="436.67" y1="210.00" x2="436.67" y2="228.21"/>
+<text x="436.67" y="399" text-anchor="middle">6</text>
+<line class="bar" x1="510.00" y1="210.00" x2="510.00" y2="188.03"/>
+<text x="510.00" y="399" text-anchor="middle">7</text>
+<line class="bar" x1="583.33" y1="210.00" x2="583.33" y2="258.27"/>
+<text x="583.33" y="399" text-anchor="middle">8</text>
+<line class="bar" x1="656.67" y1="210.00" x2="656.67" y2="203.21"/>
+<text x="656.67" y="399" text-anchor="middle">9</text>
+<line class="bar" x1="730.00" y1="210.00" x2="730.00" y2="238.56"/>
+<text x="730.00" y="399" text-anchor="middle">10</text>
+<text x="380.0" y="422" text-anchor="middle">lag</text>
+</svg>
