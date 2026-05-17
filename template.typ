@@ -9,7 +9,8 @@
 //
 // #frame(title: [定理 X.X])[
 //   本文
-// ]
+//
+
 
 #let setup(body) = {
   import "@preview/codly:1.3.0": *
