@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="760" viewBox="0 0 980 760">
+<style>text{font-family:"Noto Sans",sans-serif;fill:#263142;font-size:13px}.title{font-size:20px;font-weight:700}.subtitle{font-size:15px;font-weight:700}.axis{stroke:#526173;stroke-width:1}.grid{stroke:#d8dee8;stroke-width:1}.line{fill:none;stroke:#1f77b4;stroke-width:2}.bar{stroke:#1f77b4;stroke-width:7}.bound{stroke:#d95f02;stroke-width:1.5;stroke-dasharray:7 5}</style>
+<text class="title" x="490.0" y="28" text-anchor="middle">MA(2): y = 2 + u_t + 0.3u_(t-1) - 0.1u_(t-2)</text>
+<text class="subtitle" x="490.0" y="72" text-anchor="middle">Simulated series (T=100)</text>
+<line class="grid" x1="140" y1="323.00" x2="875" y2="323.00"/>
+<text x="133" y="327.00" text-anchor="end">-1.3</text>
+<line class="grid" x1="140" y1="263.00" x2="875" y2="263.00"/>
+<text x="133" y="267.00" text-anchor="end">0.1</text>
+<line class="grid" x1="140" y1="203.00" x2="875" y2="203.00"/>
+<text x="133" y="207.00" text-anchor="end">1.6</text>
+<line class="grid" x1="140" y1="143.00" x2="875" y2="143.00"/>
+<text x="133" y="147.00" text-anchor="end">3.1</text>
+<line class="grid" x1="140" y1="83.00" x2="875" y2="83.00"/>
+<text x="133" y="87.00" text-anchor="end">4.6</text>
+<line class="axis" x1="140" y1="323" x2="875" y2="323"/>
+<line class="axis" x1="140" y1="83" x2="140" y2="323"/>
+<text x="140.00" y="347" text-anchor="middle">1</text>
+<text x="318.18" y="347" text-anchor="middle">25</text>
+<text x="503.79" y="347" text-anchor="middle">50</text>
+<text x="689.39" y="347" text-anchor="middle">75</text>
+<text x="875.00" y="347" text-anchor="middle">100</text>
+<polyline class="line" style="stroke:#1f77b4" points="140.00,255.98 147.42,199.37 154.85,120.92 162.27,148.16 169.70,156.21 177.12,201.96 184.55,284.64 191.97,191.11 199.39,186.03 206.82,222.71 214.24,249.12 221.67,228.93 229.09,174.06 236.52,212.71 243.94,176.90 251.36,163.67 258.79,194.90 266.21,278.21 273.64,174.06 281.06,167.44 288.48,134.98 295.91,103.89 303.33,203.56 310.76,211.79 318.18,125.29 325.61,130.17 333.03,215.30 340.45,225.52 347.88,227.98 355.30,246.23 362.73,189.96 370.15,180.24 377.58,215.97 385.00,144.49 392.42,171.87 399.85,212.01 407.27,107.47 414.70,133.98 422.12,187.50 429.55,212.43 436.97,99.29 444.39,204.41 451.82,185.60 459.24,173.14 466.67,196.79 474.09,171.59 481.52,165.16 488.94,216.25 496.36,202.91 503.79,175.38 511.21,248.18 518.64,192.39 526.06,194.26 533.48,165.99 540.91,124.58 548.33,184.31 555.76,118.08 563.18,139.89 570.61,253.55 578.03,207.45 585.45,200.35 592.88,214.50 600.30,176.95 607.73,171.35 615.15,227.81 622.58,191.28 630.00,245.08 637.42,195.26 644.85,261.02 652.27,187.40 659.70,205.06 667.12,190.76 674.55,134.45 681.97,143.21 689.39,133.67 696.82,121.39 704.24,284.51 711.67,306.71 719.09,154.51 726.52,187.51 733.94,171.06 741.36,172.71 748.79,151.85 756.21,122.26 763.64,166.60 771.06,177.54 778.48,172.01 785.91,202.81 793.33,154.91 800.76,206.36 808.18,202.52 815.61,206.01 823.03,213.20 830.45,235.86 837.88,256.49 845.30,233.36 852.73,200.80 860.15,253.45 867.58,219.06 875.00,158.27"/>
+<text class="subtitle" x="490.0" y="422" text-anchor="middle">Correlogram up to lag 10</text>
+<line class="grid" x1="140" y1="673.00" x2="875" y2="673.00"/>
+<text x="133" y="677.00" text-anchor="end">-0.35</text>
+<line class="grid" x1="140" y1="613.00" x2="875" y2="613.00"/>
+<text x="133" y="617.00" text-anchor="end">-0.15</text>
+<line class="grid" x1="140" y1="553.00" x2="875" y2="553.00"/>
+<text x="133" y="557.00" text-anchor="end">0.05</text>
+<line class="grid" x1="140" y1="493.00" x2="875" y2="493.00"/>
+<text x="133" y="497.00" text-anchor="end">0.25</text>
+<line class="grid" x1="140" y1="433.00" x2="875" y2="433.00"/>
+<text x="133" y="437.00" text-anchor="end">0.45</text>
+<line class="axis" x1="140" y1="568.00" x2="875" y2="568.00"/>
+<line class="axis" x1="140" y1="433" x2="140" y2="673"/>
+<line class="bound" x1="140" y1="509.20" x2="875" y2="509.20"/>
+<line class="bound" x1="140" y1="626.80" x2="875" y2="626.80"/>
+<line class="bar" x1="140.00" y1="568.00" x2="140.00" y2="496.01"/>
+<text x="140.00" y="697" text-anchor="middle">1</text>
+<line class="bar" x1="221.67" y1="568.00" x2="221.67" y2="582.27"/>
+<text x="221.67" y="697" text-anchor="middle">2</text>
+<line class="bar" x1="303.33" y1="568.00" x2="303.33" y2="546.79"/>
+<text x="303.33" y="697" text-anchor="middle">3</text>
+<line class="bar" x1="385.00" y1="568.00" x2="385.00" y2="598.79"/>
+<text x="385.00" y="697" text-anchor="middle">4</text>
+<line class="bar" x1="466.67" y1="568.00" x2="466.67" y2="593.29"/>
+<text x="466.67" y="697" text-anchor="middle">5</text>
+<line class="bar" x1="548.33" y1="568.00" x2="548.33" y2="568.22"/>
+<text x="548.33" y="697" text-anchor="middle">6</text>
+<line class="bar" x1="630.00" y1="568.00" x2="630.00" y2="616.62"/>
+<text x="630.00" y="697" text-anchor="middle">7</text>
+<line class="bar" x1="711.67" y1="568.00" x2="711.67" y2="599.95"/>
+<text x="711.67" y="697" text-anchor="middle">8</text>
+<line class="bar" x1="793.33" y1="568.00" x2="793.33" y2="566.34"/>
+<text x="793.33" y="697" text-anchor="middle">9</text>
+<line class="bar" x1="875.00" y1="568.00" x2="875.00" y2="572.29"/>
+<text x="875.00" y="697" text-anchor="middle">10</text>
+</svg>
