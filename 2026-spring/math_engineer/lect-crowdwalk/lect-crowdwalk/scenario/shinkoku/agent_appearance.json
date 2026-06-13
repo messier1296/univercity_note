@@ -1,0 +1,44 @@
+[
+    {
+        "tag" : "*",
+        "model" : {
+            "className" : "SpeedModel",
+            "parameters" : {
+                "coefficientOfHue" : 0.35,
+                "exponent" : 5.0,
+                "saturation" : 0.8588,
+                "brightness" : 0.698
+            }
+        },
+        "2D_View" : {
+            //"className" : "RoundAgent",
+            "className" : "TriangleAgent",
+            "parameters" : {}
+        },
+        "3D_View" : {
+            //"className" : "SphereAgent",
+            //"className" : "PlaneTriangleAgent",
+            "className" : "TriangleMeshAgent",
+            "parameters" : {
+                "description" : "Quadrangular pyramid",
+                "points" : [
+                    0.0, 0.0, 0.0,
+                    0.0, 1.0, -0.5,
+                    -0.5, 1.0, 0.0,
+                    0.5, 1.0, 0.0,
+                    0.0, 1.0, 0.5
+                ],
+                "faces" : [
+                    0, 0,   2, 0,   1, 0,
+                    0, 0,   1, 0,   3, 0,
+                    0, 0,   3, 0,   4, 0,
+                    0, 0,   4, 0,   2, 0,
+                    4, 0,   1, 0,   2, 0,
+                    4, 0,   3, 0,   1, 0
+                ],
+                "rotationAngle" : 90.0,
+                "rotationAxis" : "Z"
+            }
+        }
+    }
+]

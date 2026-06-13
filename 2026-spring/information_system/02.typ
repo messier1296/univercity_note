@@ -1,4 +1,3 @@
-
 #import "../../template.typ": frame, setup
 #show: (setup)
 

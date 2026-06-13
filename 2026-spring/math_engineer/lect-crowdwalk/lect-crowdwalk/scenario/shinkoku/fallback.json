@@ -1,0 +1,42 @@
+{
+    "generation": {
+      "rule": "EACH",
+      "conditions":null,
+      "speedModel": "LANE",
+      "_": null
+    },
+    "agent" : {
+        "className": "RationalAgent",
+        "weight": -0.0,
+        "trail": 0.0,
+        "margin": 0.0,
+        "rule": [
+          { "": "if", "condition": {
+              "": "placeHasTag", "tag": "JC"
+            },
+            "then": [
+              {"": "clearPlannedRoute"},
+              { "": "if", "condition": {
+                  "": "<=",
+                    "left": {"": "random", "type": "double"},
+                    "right": 0.5
+                },
+                "then": [
+                  {"": "insertRoute", "route": "ROUTE_A"}
+                ],
+                "else": [
+                  {"": "insertRoute", "route": "ROUTE_B"}
+                ]
+              }
+            ]
+          }
+         ],
+       "slope_detection_tool" : "OFF",
+        "_": null
+       },
+   "link" : {
+       "set_lane_width" : 0.75,
+        "_": null
+       },
+    "_": null
+}

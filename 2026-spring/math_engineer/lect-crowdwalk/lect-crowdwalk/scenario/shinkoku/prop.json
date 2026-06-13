@@ -1,0 +1,64 @@
+{
+    "comment": "NetmasCuiSimulator",
+    "debug": true,
+    "io_handler_type": "none",
+
+    "map_file": "2017_0517.New_national_theatre_tokyo_org.xml",
+    "generation_file": "../../work/gen.csv",
+    "scenario_file": "scenario.csv",
+    "camera_file": "camera3d_all.json",
+    "fallback_file":"fallback.json",
+    "link_appearance_file":"link_appearance.json",
+    "node_appearance_file": "node_appearance.json",
+    "agent_appearance_file": "agent_appearance.json",
+    "polygon_appearance_file": "polygon_appearance.json",
+
+    "show_background_map": false,
+    "color_depth_of_background_map": 0.2,
+    "gsi_tile_name": "std",
+    "gsi_tile_zoom": 4,
+
+    "interval": 0,
+    "randseed": 1023,
+    "random_navigation": false,
+    "speed_model": "density",
+    "loop_count": 1,
+    "exit_count": 0,
+    "all_agent_speed_zero_break": true,
+    "mental_map_rules": true,
+
+    "create_log_dir": true,
+    "damage_speed_zero_log": false,
+    "damage_speed_zero_log_path": "../../work/log/damage_speed_zero.csv",
+
+    "agent_movement_history_file": "../../work/log/agent_movement_history.csv",
+
+    "checkpoints_of_agent_movement_history_log:": "LP_X1_L2,A_stair_top",
+
+    "_individual_pedestrians_log_dir": "../../work/log",
+
+    "evacuated_agents_log_file":"../../work/log/evacuatedAgent.csv",
+
+    "record_simulation_screen": false,
+    "screenshot_dir": "../../work/log/cap",
+    "clear_screenshot_dir": true,
+    "screenshot_image_type": "png",
+
+    "vertical_scale": 1.0,
+    "agent_size": 0.8,
+    "zoom": 1.0,
+    "hide_links:": false,
+    "density_mode": false,
+    "change_agent_color_depending_on_speed": true,
+    "show_status": "Bottom",
+    "show_logo": false,
+    "show_3D_polygon": true,
+
+    "simulation_window_open": false,
+    "auto_simulation_start": true,
+    "exit_with_simulation_finished": true,
+    "rotation_angle_locking": false,
+    "rotation_angle": -52.7,
+
+    "__end": null
+}
