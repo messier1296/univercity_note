@@ -4,4 +4,8 @@ __pycache__/
 .ruff_cache
 *Zone.Identifier
 .codex
+<<<<<<< Updated upstream
 test/
+=======
+>>>>>>> Stashed changes
+.out

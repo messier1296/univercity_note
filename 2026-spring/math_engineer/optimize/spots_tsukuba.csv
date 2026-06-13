@@ -1,0 +1,17 @@
+id,name,category,lat,lon,area,indoor_outdoor,meal_type,stay_minutes,cost_yen,open_note,tsukuba_score,fun_conversation_score,photo_memory_score,food_rest_score,mobility_score,cost_score,researcher_fit_score,calm_score,japan_season_score,english_explain_score,scenario_b_fit,scenario_c_fit,recommended_transport,source_note
+tsukuba_station,つくば駅,transport,36.082810,140.111524,つくばセンター,indoor,none,0,0,START/END candidate,4,3,3,2,5,5,4,3,2,4,4,5,walk/bike,OSM geocoded
+tsukuba_center_square,つくばセンター広場,plaza,36.082700,140.111900,つくばセンター,outdoor,none,20,0,駅前の集合・休憩向き,4,4,4,2,5,5,3,3,3,3,4,5,walk/bike,Approx. near Tsukuba Center
+tonarie_tsukuba,トナリエつくばスクエア,shopping,36.082200,140.111600,つくばセンター,indoor,light_meal,45,1000,飲食・買い物・雨天代替にも使える,3,4,3,5,5,4,2,3,2,3,5,4,walk/bike,Approx. near station
+bivi_tsukuba,BiViつくば,shopping,36.081758,140.112834,つくばセンター,indoor,light_meal,40,900,駅前の食事・休憩候補,3,4,3,4,5,4,2,3,2,3,4,4,walk/bike,OSM geocoded
+tsukuba_expo_center,つくばエキスポセンター,museum,36.086623,140.110575,吾妻,indoor,none,75,500,科学館・プラネタリウム候補,5,4,5,2,5,4,5,4,2,4,5,5,walk/bike,OSM geocoded
+central_park,つくば中央公園,park,36.085600,140.110300,吾妻,outdoor,none,30,0,エキスポセンター隣接の屋外休憩,4,3,4,2,5,5,4,4,4,3,4,5,walk/bike,Approx. near Expo Center
+central_library,つくば市立中央図書館,library,36.084300,140.111500,吾妻,indoor,none,30,0,落ち着いた短時間見学・休憩,3,2,2,2,5,5,4,5,2,3,3,5,walk/bike,Approx. near central park
+nova_hall,ノバホール,culture,36.083800,140.112600,吾妻,indoor,none,20,0,建築・文化施設として外観見学,3,2,3,1,5,5,3,4,2,3,3,4,walk/bike,Approx. near station
+sakura_traffic_park,さくら交通公園,park,36.085132,140.122787,花園,outdoor,none,30,0,自転車で寄り道しやすい公園,3,4,4,1,3,5,2,3,4,2,4,3,bike,OSM geocoded
+matsumi_park,松見公園,park,36.090718,140.107611,天久保,outdoor,none,40,0,展望塔・池があり写真向き,4,4,5,2,4,5,3,4,4,2,5,4,walk/bike,OSM geocoded
+univ_central_library,筑波大学附属中央図書館,university,36.109091,140.101407,筑波大学,indoor,none,30,0,大学紹介・研究都市らしさ,5,3,3,1,2,5,5,4,2,3,5,2,bike,OSM geocoded
+univ_stone_plaza,筑波大学 石の広場,university,36.108700,140.101900,筑波大学,outdoor,none,25,0,キャンパスの雰囲気を伝えやすい,5,4,4,1,2,5,4,4,3,2,5,2,bike,Approx. near University of Tsukuba central area
+doho_park,洞峰公園,park,36.060411,140.122496,二の宮,outdoor,none,45,0,自然・散歩・写真向き,4,4,5,2,2,5,3,5,5,2,5,2,bike,OSM geocoded
+tsukuba_botanical_garden,筑波実験植物園,museum_park,36.101272,140.111728,天久保,outdoor,none,75,320,研究機関らしさと季節感,5,3,5,2,2,5,5,5,5,3,4,2,bike,OSM geocoded
+geological_museum,地質標本館,museum,36.061922,140.132745,並木,indoor,none,60,0,産総研系の研究都市らしい展示,5,3,4,1,2,5,5,4,2,3,4,2,bike,OSM geocoded
+jaxa_tsukuba,JAXA筑波宇宙センター,museum_research,36.068126,140.126778,千現,indoor,none,75,0,宇宙開発展示・研究者にも説明しやすい,5,4,5,1,2,5,5,4,2,4,5,2,bike,OSM geocoded

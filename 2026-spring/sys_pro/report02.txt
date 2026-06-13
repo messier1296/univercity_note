@@ -1,0 +1,192 @@
+学籍番号: 202410178
+名前: 今村隼人
+課題番号：2
+練習問題番号：212, 204
+題名：標準入出力と文字列の置換，単語の出現頻度
+
+
+1. プログラムの説明
+
+while ループで入力が終わるまで getchar() で文字を読み込む。
+読み込んだ文字が空白ならアンダースコア，タブなら [TAB]，
+小文字なら大文字を出力し，それ以外の文字はそのまま出力する。
+cnt で変換した文字数を数え，
+最後に標準エラー出力へ表示する。
+
+
+212.c
+
+
+#include <stdio.h>
+#include <ctype.h>
+
+int main(){
+  int cnt = 0;
+
+  int c;
+  while ((c = getchar()) != EOF ){
+    cnt++;
+    if (c == ' '){
+      putchar('_');
+    }
+    else if (c == 0x09){
+      printf("[TAB]");
+    }
+    else if (islower(c)){
+      putchar(toupper(c));
+    }
+    else {
+      cnt--;
+      putchar(c);
+    }
+  }
+  fprintf(stderr, "%d characters translated.\n",cnt);
+  return 0;
+}
+
+2. 動作確認環境
+
+動作確認は自分の PC 上の WSL2 環境で行った。
+OS は Ubuntu 24.04 系で，カーネルは
+Linux 6.6.114.1-microsoft-standard-WSL2 である。
+コンパイラは gcc 13.3.0 を用いた。
+
+3. コンパイルと実行
+
+以下のようにコンパイルし実行した。
+
+
+$ gcc 2026-spring/sys_pro/212.c
+
+$ echo -e 'Twinkle, twinkle, little star,\tHow I wonder what you are!\nUp above the world so high,\tLike a diamond in the sky.' | ./a.out > out.text
+100 characters translated.
+
+$ /bin/cat out.text
+TWINKLE,_TWINKLE,_LITTLE_STAR,[TAB]HOW_I_WONDER_WHAT_YOU_ARE!
+UP_ABOVE_THE_WORLD_SO_HIGH,[TAB]LIKE_A_DIAMOND_IN_THE_SKY.
+
+$ /bin/cat 2026-spring/sys_pro/bsd.txt
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+    1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+    3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+$ /bin/cat 2026-spring/sys_pro/bsd.txt | ./a.out
+REDISTRIBUTION_AND_USE_IN_SOURCE_AND_BINARY_FORMS,_WITH_OR_WITHOUT_MODIFICATION,_ARE_PERMITTED_PROVIDED_THAT_THE_FOLLOWING_CONDITIONS_ARE_MET:
+
+[TAB]1._REDISTRIBUTIONS_OF_SOURCE_CODE_MUST_RETAIN_THE_ABOVE_COPYRIGHT_NOTICE,_THIS_LIST_OF_CONDITIONS_AND_THE_FOLLOWING_DISCLAIMER.
+
+[TAB]2._REDISTRIBUTIONS_IN_BINARY_FORM_MUST_REPRODUCE_THE_ABOVE_COPYRIGHT_NOTICE,_THIS_LIST_OF_CONDITIONS_AND_THE_FOLLOWING_DISCLAIMER_IN_THE_DOCUMENTATION_AND/OR_OTHER_MATERIALS_PROVIDED_WITH_THE_DISTRIBUTION.
+
+[TAB]3._NEITHER_THE_NAME_OF_THE_COPYRIGHT_HOLDER_NOR_THE_NAMES_OF_ITS_CONTRIBUTORS_MAY_BE_USED_TO_ENDORSE_OR_PROMOTE_PRODUCTS_DERIVED_FROM_THIS_SOFTWARE_WITHOUT_SPECIFIC_PRIOR_WRITTEN_PERMISSION.
+648 characters translated.
+
+
+4. 練習問題(204)のプログラムの説明
+
+以下に，与えられた文字列の中で最も出現頻度が高い単語を
+出力するプログラムを示す。
+英文字が続く部分を単語として切り出し，大文字と小文字を
+区別しないように小文字へ変換してから表に登録する。
+同じ単語がすでに表にあれば出現回数を増やし，
+なければ新しい単語として追加する。
+最後に，表の中で出現回数が最大の単語を標準出力へ出力する。
+
+
+204.c
+
+
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
+
+#define WORD_LEN 255
+#define WORD_MAX 4095
+
+struct word_count {
+  char word[WORD_LEN];
+  int cnt;
+};
+
+void print_freqword(char *str) {
+  int word_num = 0;
+  int len = strlen(str);
+  struct word_count table[WORD_MAX];
+  int left = -1;
+  int i = 0;
+  while (i <= len) {
+    if (isalpha(str[i])) {
+      if (left == -1) {
+        left = i;
+      }
+    } else {
+      if (left != -1) {
+        // wordに現在の単語をコピー
+        char word[WORD_LEN];
+        int word_len = i - left;
+        for (int iter = 0; iter < word_len; iter++) {
+          word[iter] = tolower(str[left + iter]);
+        }
+        word[word_len] = '\0';
+        int found = -1;
+        for (int iter = 0; iter < word_num; iter++) {
+          if (strcmp(word, table[iter].word) == 0) {
+            found = iter;
+            break;
+          }
+        }
+        if (found >= 0) {
+          table[found].cnt++;
+        } else {
+          strcpy(table[word_num].word, word);
+          table[word_num].cnt = 1;
+          word_num++;
+        }
+        left = -1;
+      }
+    }
+    i++;
+  }
+
+  int max = 0;
+  int p = 0;
+  for (int iter = 0; iter < word_num; iter++) {
+    if (max < table[iter].cnt) {
+      max = table[iter].cnt;
+      p = iter;
+    }
+  }
+  printf("%s\n", table[p].word);
+}
+
+int main() {
+  char str1[] = "One little, two little, three little Indians,\n"
+                "Four little, five little, six little Indians,\n"
+                "Seven little, eight little, nine little Indians,\n"
+                "Ten little Indian boys.";
+  char str2[] =
+      "        Mary Had a Little Lamb\n\n"
+      "Mary had a little lamb,\nIts fleece was white as snow;\n"
+      "And everywhere that Mary went,\nThe lamb was sure to go.\n\n"
+      "It followed her to school one day,\nWhich was against the rule;\n"
+      "It made the children laugh and play,\nTo see a lamb at school.\n";
+
+  print_freqword(str1); // "little"
+  print_freqword(str2); // "lamb"
+
+  return 0;
+}
+
+5. 練習問題(204)のコンパイルと実行
+
+以下のようにコンパイルし実行した。
+
+
+$ gcc 2026-spring/sys_pro/204.c
+
+$ ./a.out
+little
+lamb

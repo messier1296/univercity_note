@@ -1,0 +1,1760 @@
+
+
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html;charset=utf-8">
+<title>システムプログラム（第2回）</title>
+<link rel="stylesheet" href="coins-syspro.css" type="text/css">
+</head>
+
+<body>
+
+<h1><a name="title">システムプログラム（第2回）</a></h1>
+
+情報学群情報科学類
+<br>
+<a href="http://www.cs.tsukuba.ac.jp/~oyama/index.html">大山 恵弘</a>
+<br>
+<img width=256 src="picture/oyama-mail-address.jpg">
+
+<h4>目次</h4>
+
+<p>
+<ol>
+<li> <a href="#sec:data-representation">文字，文字列のデータ表現</a></li>
+<li> <a href="#sec:stdio">標準入出力</a></li>
+<li> <a href="#sec:strings-library">文字操作，文字列操作ライブラリ</a></li>
+<li> <a href="#sec:pointer2">ポインタ（2）</a></li>
+</ol>
+</p>
+
+<h2><a name="sec:data-representation">文字，文字列のデータ表現</a></h2>
+
+<h3>文字コード</h3>
+
+<p>
+コンピュータは2進数しか扱えないので，文字も数として表す必要がある．
+ある数値がどの文字にあたるかの対応の決まりを文字コードと呼ぶ．
+文字コードには唯一絶対というようなものはなく，場合によって使い分けられている．
+欧米では必要となる文字数が少ないため，文字コードも標準的なものがあるが，それ以外（特に日本）は大変複雑になってしまっている．
+
+<ul>
+<li> ASCII（アメリカで作られたアルファベット，数字，記号を表す文字コード）
+<li> Latin-1（ISO 8859-1 規格により規定されている西欧諸国用文字コード）
+<li> ISO-2022-JP（JIS 規格によって規定されている日本語文字コード）
+<li> シフト JIS コード（Microsoft によって作られた日本語文字コード，SJIS コードとも呼ばれる）
+<li> EUC-JP（AT&amp;T によって作られた各国語用コードのうち日本語の文字コード）
+<li> UTF-8（国際的に統一的に使えるようにと策定された文字コードフォーマット）
+</ul>
+
+</p>
+
+
+<h4><a name="ascii">ASCIIコード</a></h4>
+
+<p>
+UNIX で標準的に使われてきたのが ASCII（アスキー）コードである．
+ASCII は American Standard Code for Information Interchange の略であり，その名のとおりアメリカで使うために作られたものである．
+7ビットで表現され，ローマ字，数字，記号，制御コードからなる．
+数値との対応は以下の通り：
+</p>
+
+<center>
+<table border cellpadding=4 cellspacing=0>
+<tr>
+<th width=100 bgcolor="#ffeedd"><font size=-1>上位3ビット→<hr size=1>↓下位4ビット</font></th>
+<th width=60 bgcolor="#ffeedd">0</th><th width=60 bgcolor="#ffeedd">1</th>
+<th width=45 bgcolor="#ffeedd">2</th><th width=45 bgcolor="#ffeedd">3</th>
+<th width=45 bgcolor="#ffeedd">4</th><th width=45 bgcolor="#ffeedd">5</th>
+
+<th width=45 bgcolor="#ffeedd">6</th><th width=50 bgcolor="#ffeedd">7</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">0</th><th>NUL</th><th>DLE</th>
+<th>SP</th><th>0</th><th>@</th><th>P</th><th>`</th><th>p</th>
+</tr>
+
+<tr>
+<th width=100 bgcolor="#ffeedd">1</th><th>SOH</th><th>DC1</th>
+<th>!</th><th>1</th><th>A</th><th>Q</th><th>a</th><th>q</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">2</th><th>STX</th><th>DC2</th>
+
+<th>&quot;</th><th>2</th><th>B</th><th>R</th><th>b</th><th>r</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">3</th><th>ETX</th><th>DC3</th>
+<th>#</th><th>3</th><th>C</th><th>S</th><th>c</th><th>s</th>
+
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">4</th><th>EOT</th><th>DC4</th>
+<th>$</th><th>4</th><th>D</th><th>T</th><th>d</th><th>t</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">5</th><th>ENQ</th><th>NAC</th>
+
+<th>%</th><th>5</th><th>E</th><th>U</th><th>e</th><th>u</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">6</th><th>ACK</th><th>SYN</th>
+<th>&amp;</th><th>6</th><th>F</th><th>V</th><th>f</th><th>v</th>
+
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">7</th><th>BEL</th><th>ETB</th>
+<th>'</th><th>7</th><th>G</th><th>W</th><th>g</th><th>w</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">8</th><th>BS</th><th>CAN</th>
+
+<th>(</th><th>8</th><th>H</th><th>X</th><th>h</th><th>x</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">9</th><th>HT</th><th>EM</th><th>)</th>
+<th>9</th><th>I</th><th>Y</th><th>i</th><th>y</th>
+
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">A</th><th>LF/NL</th><th>SUB</th>
+<th>*</th><th>:</th><th>J</th><th>Z</th><th>j</th>
+<th>z</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">B</th><th>VT</th><th>ESC</th>
+
+<th>+</th><th>;</th><th>K</th><th>[</th><th>k</th><th>{</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">C</th><th>FF</th><th>FS</th><th>,</th>
+<th>&lt;</th><th>L</th><th>＼</th><th>l</th><th>|</th>
+
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">D</th><th>CR</th><th>GS</th>
+<th>-</th><th>=</th><th>M</th><th>]</th><th>m</th><th>}</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">E</th><th>SO</th><th>RS</th>
+
+<th>.</th><th>&gt;</th><th>N</th><th>^</th><th>n</th><th>~</th>
+</tr>
+<tr>
+<th width=100 bgcolor="#ffeedd">F</th><th>SI</th><th>US</th>
+<th>/</th><th>?</th><th>O</th><th>_</th><th>o</th><th>DEL</th>
+
+</tr>
+</TABLE>
+</center>
+
+<p>
+</p>
+
+<center>
+<table width=60%>
+<caption align="left"><b>制御符号</b></caption>
+<tr>
+<td width=15% valign=top>
+<ul style="list-style:none;">
+<li><b>NUL</b>		ヌル(空文字)
+<li><b>SOH</b>		ヘディング開始
+<li><b>STX</b>		テキスト開始
+
+<li><b>ETX</b>		テキスト終了
+<li><b>EOT</b>		伝送終了
+<li><b>ENQ</b>		問い合わせ
+<li><b>ACK</b>		肯定応答
+<li><b>BEL</b>		ベル
+</ul>
+</td>
+<td width=15% valign=top>
+<ul style="list-style:none;">
+<li><b>BS</b>		バックスペース
+
+<li><b>HT</b>		水平タブ
+<li><b>LF/NL</b>	復帰/改行
+<li><b>VT</b>		垂直タブ
+<li><b>FF</b>		改ページ
+<li><b>CR</b>		復帰
+<li><b>SO</b>		シフトアウト
+
+<li><b>SI</b>		シフトイン
+<li><b>DLE</b>		データリンクでの拡張
+</ul>
+</td>
+<td width=15% valign=top>
+<ul style="list-style:none;">
+<li><b>DC1</b>		制御装置1
+<li><b>DC2</b>		制御装置2
+<li><b>DC3</b>		制御装置3
+
+<li><b>DC4</b>		制御装置4
+<li><b>NAC</b>		否定応答
+<li><b>SYN</b>		同期文字
+<li><b>ETB</b>		伝送ブロック終了
+</ul>
+</td>
+<td width=15% valign=top>
+<ul style="list-style:none;">
+<li><b>CAN</b>		取消
+<li><b>EM</b>		媒体終端
+
+<li><b>SUB</b>		
+<li><b>ESC</b>		(制御コード)拡張
+<li><b>FS</b>		ファイルセパレータ
+<li><b>GS</b>		グループセパレータ
+<li><b>RS</b>		レコードセパレータ
+<li><b>US</b>		ユニットセパレータ
+
+<li><b>SP</b>		(半角)スペース
+<li><b>DEL</b>		削除
+</ul>
+</td>
+</tr>
+</table>
+</center>
+
+<h4>EUC-JP</h4>
+
+<p>
+EUC は Extended UNIX Code の略であり，EUC-JP は UNIX では広く使われている日本語文字コードである．
+基本的には漢字1文字を2バイトで表すが，3バイトで表される補助漢字もある．
+</p>
+
+<center>
+<table border cellpadding=4 cellspacing=0>
+<caption>1バイト目：B0</caption>
+
+<tr bgcolor="#ffeedd">
+<th width=100><font size=-1>下位4ビット→<hr size=1>↓上位4ビット</font></th>
+<th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th></tr>
+
+<tr><th bgcolor="#ffeedd">A0</th><td></td><td>亜</td><td>唖</td><td>娃</td><td>阿</td><td>哀</td><td>愛</td><td>挨</td><td>姶</td><td>逢</td><td>葵</td><td>茜</td><td>穐</td><td>悪</td><td>握</td><td>渥</td></tr>
+
+<tr><th bgcolor="#ffeedd">B0</th><td>旭</td><td>葦</td><td>芦</td><td>鯵</td><td>梓</td><td>圧</td><td>斡</td><td>扱</td><td>宛</td><td>姐</td><td>虻</td><td>飴</td><td>絢</td><td>綾</td><td>鮎</td><td>或</td></tr>
+
+<tr><th bgcolor="#ffeedd">C0</th><td>粟</td><td>袷</td><td>安</td><td>庵</td><td>按</td><td>暗</td><td>案</td><td>闇</td><td>鞍</td><td>杏</td><td>以</td><td>伊</td><td>位</td><td>依</td><td>偉</td><td>囲</td></tr>
+
+<tr><th bgcolor="#ffeedd">D0</th><td>夷</td><td>委</td><td>威</td><td>尉</td><td>惟</td><td>意</td><td>慰</td><td>易</td><td>椅</td><td>為</td><td>畏</td><td>異</td><td>移</td><td>維</td><td>緯</td><td>胃</td></tr>
+
+<tr><th bgcolor="#ffeedd">E0</th><td>萎</td><td>衣</td><td>謂</td><td>違</td><td>遺</td><td>医</td><td>井</td><td>亥</td><td>域</td><td>育</td><td>郁</td><td>磯</td><td>一</td><td>壱</td><td>溢</td><td>逸</td></tr>
+
+<tr><th bgcolor="#ffeedd">F0</th><td>稲</td><td>茨</td><td>芋</td><td>鰯</td><td>允</td><td>印</td><td>咽</td><td>員</td><td>因</td><td>姻</td><td>引</td><td>飲</td><td>淫</td><td>胤</td><td>蔭</td><td></td></tr>
+
+</table>
+</center>
+
+<p>
+上記の表の最初にある「亜」という漢字は1バイト目が B0，2バイト目が A1 となる．
+EUC-JP では，漢字は1バイト目，2バイト目共に8ビット目が立っている（1である）．
+そのため，ある任意の1バイトを見ただけで漢字であるかどうか判別できるという利点がある．
+しかし，それが漢字の1バイト目なのか2バイト目なのかはわからない．
+</p>
+
+<h4>バックスラッシュ「＼」と円マーク「\」</h4>
+
+<p>
+以下のバックスラッシュ「＼」についての記述は，Linux や macOS にはあてはまらない．
+それらの OS を使っている場合は，高い可能性で，半角バックスラッシュは正しく表示される．
+</p>
+
+<p>
+日本語の文字コードでは，ASCII コード 0x5C の文字がバックスラッシュ「＼」（このバックスラッシュは全角の文字）ではなく￥（この円記号は全角の文字）に対応付けられてしまっている．
+そのため，その2種類の文字は，同じ文字コード（数値）に対応付けられるが，見た目が違うというややこしいことになっている．
+以下のプログラムのように，C プログラム中に円マーク「\」が出てきたら，バックスラッシュと同じとみなしてよい．
+</p>
+
+<pre class="program">
+#include &lt;stdio.h&gt;
+
+int main(void)
+{
+        printf("Hello world!\n");
+        return 0;
+}
+</pre>
+
+
+<h4>さらに詳しい解説</h4>
+
+<p>
+新城先生による解説を参照してください．<br>
+<a href="http://www.softlab.cs.tsukuba.ac.jp/~yas/classes/ipe/nitiniti2-enshu-1996/1996-11-18/kanji-code.html">
+<code>http://www.softlab.cs.tsukuba.ac.jp/~yas/classes/ipe/nitiniti2-enshu-1996/1996-11-18/kanji-code.html</code>
+</a>
+</p>
+
+<p>
+バックスラッシュと円マークについては以下のWebページに詳しい情報がある．<br>
+<ul>
+<li>penpenメモ 「バックスラッシュと円記号の歴史と違い」<br>
+<a href="https://penpen-dev.com/blog/bakku-enn/">
+<code>https://penpen-dev.com/blog/bakku-enn/</code>
+</a>
+</ul>
+</p>
+
+<p>
+文字コードについて腰をすえて学ぶなら，以下の本を薦める．
+<ul>
+<li>矢野啓介，<a href="https://gihyo.jp/book/2019/978-4-297-10291-3">［改訂新版］プログラマのための文字コード技術入門</a>，技術評論社，2018年．
+</ul>
+</p>
+
+<h3>C言語における文字と文字列</h3>
+
+<p>
+日本語文字コードの取り扱いは煩雑で難しい．
+そのため，この講義では ASCII コードだけを取り扱うことにする．
+</p>
+
+<p>
+C 言語においては，シングルクォーテーション「&#x27;」で囲まれたものが文字であり，ダブルクォーテーション「&#x22;」で囲まれたものが文字列である．
+'A' は文字であり，"A" は文字列である．
+見た目の差はわずかかもしれないが，両者は似て非なるものである．
+</p>
+
+
+<h4>文字</h4>
+
+<p>
+シングルクォーテーション「&#x27;」で文字を囲んだデータは char 型の定数であり，その定数の値は ASCII コードにおけるその文字に対応した値になる．
+下の (1) と (2) は同じ値を変数 c に代入しており，プログラムの読みやすさ以外に何も違いはない．
+</p>
+
+<pre class="program">
+char c;
+c = 'A';        /* (1) */
+c = 0x41;       /* (2) */
+</pre>
+
+<p>
+char 型は整数型の一種である．文字は数値であるため，演算や比較の対象になる．
+下のプログラムでは，char 型の変数 c を ++ でインクリメント（7行目）したり，<= で文字定数と比較（6行目）している．
+</p>
+
+<a href="resource/char.c">char.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2
+     3  int main(void)
+     4  {
+     5          char c = 'a';
+     6          while (c <= 'z') {
+     7                  putchar(c++);
+     8          }
+     9          putchar('\n');
+    10          return 0;
+    11  }
+</pre>
+
+実行結果を以下に示す．
+
+<pre class="interaction">
+$ ./a.out
+abcdefghijklmnopqrstuvwxyz
+$
+</pre>
+
+<h4>文字列</h4>
+
+<p>
+文字は1つの整数であるため，文字の並びである文字列は整数の配列として表される．
+文字列の終端を表すために，文字列の最後には 0 が置かれる．
+文字列には終端の 0 が含まれるため，文字列を格納するのに必要な配列の長さは表示される文字数よりも 1 大きくなる．
+下の図は "A" および "Hello" という文字列がどのように格納されるか図示したものである．
+</p>
+
+<pre class="figure">
+<img src="picture/string.png" alt="文字列の格納">
+</pre>
+
+<p>
+配列の0番目の要素から順番に文字が入れられ，最後に文字列の終端を表す 0 が入っている．
+終端が \0 と書いてあるのは，値が 0 の文字は '\0' と表記するからである．
+値が 0 の文字は NUL と表記されることも多い．
+<br>
+要するに，文字列とは最後の要素が0である char 型の整数の並びである．
+</p>
+
+<p>
+以下のプログラムは，文字を配列に格納したものが文字列になることを確かめるものである．
+</p>
+
+<a href="resource/string1.c">string1.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2
+     3  char s[] = {'H', 'e', 'l', 'l', 'o', 0};
+     4
+     5  int main(void)
+     6  {
+     7          int i = 0;
+     8
+     9          printf("%s\n", s);
+    10
+    11          while (s[i]) {
+    12                  printf("[%d] = %c\n", i, s[i]);
+    13                  i++;
+    14          }
+    15
+    16          return 0;
+    17  }
+</pre>
+
+<p>
+3行目では，文字型配列 s に順番に Hello と入るように初期化している．
+9行目の printf では変換文字に %s を用いて，文字列を出力している．
+これで文字型配列 s が文字列となっていることがわかる．
+11-14行目では，文字型配列 s の各要素の文字を出力している．
+C 言語の while では条件式が0でないときに条件が成立しているとみなされるので，s[i] の値が0になるまでこのループの実行は続く．
+12行目の printf では変換文字に %c を用いて文字を出力している．
+これをコンパイル，実行すると以下の結果が得られる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+Hello
+[0] = H
+[1] = e
+[2] = l
+[3] = l
+[4] = o
+$
+</pre>
+
+<p>
+3行目は，以下のように書いても同じである．
+</p>
+
+<a href="resource/string2.c">string2.c</a>
+<pre class="program">
+     3  char s[] = "Hello";
+</pre>
+
+<p>
+しかしながら，以下のプログラムのように書くと，意味が異なってくる．
+<ul>
+<li>先ほどのプログラムで使った char 型配列 s は，初期値となる文字列が入った配列である．
+配列の中の個々の文字は変更できるが，s 自体は配列の存在するメモリ上の特定の場所に結びついており変更できない．
+一方，以下のプログラムの3行目にある char ポインタ型の変数 ps は，文字列定数を指すように初期化されたポインタである．
+従って，プログラム中でこのポインタを他の場所を指すように変更することができる．配列とポインタは似ているが違うものである（詳しくは C FAQ の<a href="http://www.kouno.jp/home/c_faq/c6.html">「6章 配列とポインター」</a>などを参照）．
+<li>s は単なる「初期値つき配列」であるため，中身を書き換えることができるが，ps の指す配列は文字列定数（中身が不変である配列）であるため，書き換えることができない（より正確に言えば，それでもあえて書き換えをした結果どうなるかは，言語仕様上は不定である）．
+Linux ではセグメンテーションフォルトが発生し，プログラムは異常終了するが，書き換えが成功してしまう OS もある．
+</ul>
+</p>
+
+<a name="string3.c">
+<a href="resource/string3.c">string3.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2
+     3  char *ps = "Hello";
+     4
+     5  int main(void)
+     6  {
+     7          int i = 0;
+     8
+     9          printf("%s\n", ps);
+    10
+    11          while (*ps) {
+    12                  printf("[%d] = %c\n", i, *ps);
+    13                  i++;
+    14                  ps++;
+    15          }
+    16
+    17          return 0;
+    18  }
+</pre>
+
+<p>
+上記のプログラムの14行目ではポインタをインクリメントすることにより，次の要素を指すようにしている．
+11-15行目の while 文は以下のように書くこともできる．
+いかにも C らしい簡潔なプログラムになるが，間違いが入りやすいという欠点もある．
+</p>
+
+<a href="resource/string4.c">string4.c</a>
+<pre class="program">
+    11          while (*ps) {
+    12                  printf("[%d] = %c\n", i++, *ps++);
+    13          }
+</pre>
+
+<h2><a name="sec:stdio">標準入出力</a></h2>
+
+<p>
+C 言語では標準入出力を用いることで，基本的な入出力を行うことができる．
+通常，標準入力はキーボードであり，標準出力は端末画面（ウィンドウ）である．
+C プログラムを実行しているプロセスは，キーボードからの入力を標準入力から受け取ることができ，また標準出力への出力は端末画面（ウィンドウ）に表示される．
+さらに，標準エラー出力と呼ばれるもう一つの出力の口がある．
+標準エラー出力は，エラーメッセージや警告のメッセージなど例外的な処理に関するメッセージを出力するために使用される．
+UNIX のシェルは，上記の3つの標準入出力をリダイレクションやパイプによってファイルや他のプログラムに切り替えることができる．
+出力先として標準出力と標準エラー出力の2つが存在することの利点はある．
+例えば，標準出力をファイルに切り替え，標準エラー出力を端末のままにしておくと，エラーメッセージがファイルではなく端末に出力されるので，エラーの発生にすぐ気づくことができるし，ファイルの中身にエラーメッセージが混ざることもなくなる．
+</p>
+
+<!-- <h3>標準入出力を用いるライブラリ関数</h3> -->
+
+<p>
+文字，書式で指定されるデータを標準入力から受け取るライブラリ関数として以下のものがある．
+</p>
+
+<pre class="program">
+int getchar(void);
+int scanf(const char *format, ...);
+</pre>
+
+<p>
+また，文字，行，書式で指定される文字列を標準出力に出力するライブラリ関数として以下のものがある．
+</p>
+
+<pre class="program">
+int putchar(int c);
+int puts(const char *s);
+int printf(const char *format, ...);
+</pre>
+
+<p>
+引数に与えられたファイルポインタに対して入出力を行うライブラリ関数には以下のものがある．
+</p>
+
+<pre class="program">
+int   fgetc(FILE *stream);
+char *fgets(char *s, int size, FILE *stream);
+int   fscanf(FILE *stream, const char *format, ...);
+int   fputc(int c, FILE *stream);
+int   fputs(const char *s, FILE *stream);
+int   fprintf(FILE *stream, const char *format, ...);
+</pre>
+
+<p>
+標準入力を表す FILE * 型の定数として，stdin があらかじめ定義されている．また，
+標準出力，標準エラー出力を表す FILE * 型の定数として，それぞれ stdout と stderr があらかじめ定義されている．
+上の関数宣言の stream と書かれた引数に stdin を与えると標準入力からの読み込みを実現でき，stdout を与えると標準出力への書き込みを実現できる．
+</p>
+
+<p>
+以下は getchar により標準入力から1文字読み込み，putchar により標準出力へ1文字書き出すプログラムである．
+EOF はファイルの終わりを示すデータ（End-Of-File）であり，通常，-1 という値が割り当てられている．
+getchar が返す値の種類は256よりも大きいため，変数 c を char 型ではなく int 型としていることには大きな意味がある．
+</p>
+
+<a href="resource/getcharputchar.c">getcharputchar.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2
+     3  int main(void)
+     4  {
+     5          int c;
+     6
+     7          while ((c = getchar()) != EOF) {
+     8                  putchar(c);
+     9          }
+    10
+    11          return 0;
+    12  }
+</pre>
+
+<p>
+これをコンパイル，実行すると以下のような結果が得られる．端末から読み込まれた文字列がそのまま端末に表示されている．
+端末からの入力は，通常，行単位でプログラムに渡される．
+よって，Enter キーを押すまで，getchar は入力を受け取れず入力を待ち続ける．
+Ctrl-D の入力は，端末からの入力の終了を伝えるためのものである．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+1234567890
+1234567890
+abcdefg
+abcdefg
+<img src="picture/Ctrl-D.png" alt="[Ctrl-D]"></b>
+$
+</pre>
+
+<p>
+fgetc, fputc を使用すると以下のプログラムのようになる．
+結果は，getchar, putchar を使用した場合と，全く同じになる．
+</p>
+
+<a name="fgetcfputc.c">
+<a href="resource/fgetcfputc.c">fgetcfputc.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2
+     3  int main(void)
+     4  {
+     5          int c;
+     6
+     7          while ((c = fgetc(stdin)) != EOF) {
+     8                  fputc(c, stdout);
+     9          }
+    10
+    11          return 0;
+    12  }
+</pre>
+
+<p>
+以下は fgets により標準入力から1行読み込み，puts により標準出力へ1行書き出すプログラムである．
+</p>
+
+<a name="fgetsputs.c">
+<a href="resource/fgetsputs.c">fgetsputs.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2
+     3  #define LINE_LEN 80
+     4
+     5  int main(void)
+     6  {
+     7          char line_buf[LINE_LEN];
+     8
+     9          while (fgets(line_buf, LINE_LEN, stdin) != NULL) {
+    10                  puts(line_buf);
+    11          }
+    12
+    13          return 0;
+    14  }
+</pre>
+
+<p>
+これをコンパイル，実行すると以下のような結果が得られる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+1234567890
+1234567890
+
+abcdefg
+abcdefg
+
+
+<img src="picture/Ctrl-D.png" alt="[Ctrl-D]"></b>
+$
+</pre>
+
+<p>
+fgets は行末の改行文字（および文字列終端を示す '\0'）を含む文字列をバッファに読み込む．
+そして puts は引数の文字列の後に改行も出力する仕様のため，改行が2回出力されている．
+</p>
+
+<p>
+以下のプログラムのように puts の代わりに fputs を使用すると，fputs は単に引数の文字列を出力するだけの仕様のため，改行が2回出力されることはなくなる．
+</p>
+
+<a name="fgetsfputs">
+<a href="resource/fgetsfputs.c">fgetsfputs.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2
+     3  #define LINE_LEN 80
+     4
+     5  int main(void)
+     6  {
+     7          char line_buf[LINE_LEN];
+     8
+     9          while (fgets(line_buf, LINE_LEN, stdin) != NULL) {
+    10                  fputs(line_buf, stdout);
+    11          }
+    12
+    13          return 0;
+    14  }
+</pre>
+
+
+<h2><a name="sec:strings-library">文字操作，文字列操作ライブラリ</a></h2>
+
+<h3>文字操作</h3>
+
+<p>
+文字操作のライブラリ関数には，以下の大文字または小文字へ変換する関数と，
+</p>
+
+<pre class="program">
+int toupper(int c);  /* 大文字へ変換 */
+int tolower(int c);  /* 小文字へ変換 */
+</pre>
+
+<p>
+以下の文字の種類を判別する関数がある．
+</p>
+
+<pre class="program">
+int isalnum(int c);   /* 英字または数字？ */
+int isalpha(int c);   /* アルファベット？ */
+int isascii(int c);   /* ASCII 文字？ */
+int isblank(int c);   /* 空白文字（スペースまたはタブ）？ */
+int iscntrl(int c);   /* 制御文字？ */
+int isdigit(int c);   /* 数字？ */
+int isgraph(int c);   /* 表示可能文字？（スペースは含まれない） */
+int islower(int c);   /* アルファベットの小文字？ */
+int isprint(int c);   /* 表示可能文字？（スペースは含まれる） */
+int ispunct(int c);   /* 表示可能文字？（スペースと英数字は含まれない） */
+int isspace(int c);   /* 空白文字？（スペース，タブ，改行文字など） */
+int isupper(int c);   /* アルファベットの大文字？ */
+int isxdigit(int c);  /* 16進数での数字？（0〜9, a〜f, A〜F） */
+</pre>
+
+<p>
+以下のプログラムは小文字を大文字へ，大文字を小文字へ変換する．
+</p>
+
+<a href="resource/caseconv1.c">caseconv1.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;ctype.h&gt;
+     3
+     4  int main(void)
+     5  {
+     6          int c;
+     7
+     8          while ((c = getchar()) != EOF) {
+     9                  if (islower(c)) {
+    10                          c = toupper(c);
+    11                  } else if (isupper(c)) {
+    12                          c = tolower(c);
+    13                  }
+    14                  putchar(c);
+    15          }
+    16
+    17          return 0;
+    18  }
+</pre>
+
+<p>
+これをコンパイル，実行すると以下のような結果が得られる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+a
+A
+b
+B
+abcdefg12345ABCDEFG
+ABCDEFG12345abcdefg
+<img src="picture/Ctrl-D.png" alt="[Ctrl-D]">
+$
+</pre>
+
+<h3>文字列操作</h3>
+
+<p>
+string のマニュアルに文字列操作のためのライブラリ関数一覧がのっている（man 3 stringで表示可能）．
+比較的良く使われる関数について解説する．
+</p>
+
+<p>
+man 3 string を見ると，関数のリストに加えて，
+</p>
+
+<pre class="program">
+#include &lt;string.h&gt;
+</pre>
+
+<p>
+と書かれている．
+同じものが，個別の関数のマニュアルページにも書かれている．
+これは，これらの関数を使用する時には string.h をインクルードしなさいという意味である．
+指定されたヘッダファイルをインクルードしないと，エラーによりコンパイルできなかったり，関数が正常に動作しなかったりする．
+</p>
+
+
+<h4>文字列の長さ</h4>
+
+<pre class="program">
+size_t strlen(const char *s);
+</pre>
+
+<p>
+strlen は文字列の長さを戻り値として返す．
+文字列の終端文字0は文字列の長さには含まれない．
+よって，strlen("abc") は 3 を返す．
+</p>
+
+<p>
+以下のプログラムは，小文字を大文字へ，大文字を小文字へ変換する．
+ただし，先ほど示したプログラムとは異なり，getchar, putchar ではなく fgets, fputs を用いて行ごとの入出力を行っている．
+strlen によって文字列の長さを取得して，それをループの終了の判定に用いている．
+</p>
+
+<a href="resource/caseconv2.c">caseconv2.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;ctype.h&gt;
+     3  #include &lt;string.h&gt;
+     4
+     5  #define LINE_LEN 80
+     6
+     7  int main(void)
+     8  {
+     9          int i, len;
+    10          char line_buf[LINE_LEN];
+    11          char *p;
+    12
+    13          while (fgets(line_buf, LINE_LEN, stdin) != NULL) {
+    14                  len = strlen(line_buf);
+    15                  p = line_buf;
+    16                  for (i = 0; i &lt; len; i++, p++) {
+    17                          if (islower(*p)) {
+    18                                  *p = toupper(*p);
+    19                          } else if (isupper(*p)) {
+    20                                  *p = tolower(*p);
+    21                          }
+    22                  }
+    23                  fputs(line_buf, stdout);
+    24          }
+    25
+    26          return 0;
+    27  }
+</pre>
+
+<p>
+ループの終了の判定では，文字列の長さを用いるよりも，処理対象の文字が終端文字であるかどうかを検査するほうが，プログラムが速くなる可能性が高い．
+</p>
+
+
+<h4>文字列の比較</h4>
+
+<pre class="program">
+int strcmp(const char *s1, const char *s2);
+int strncmp(const char *s1, const char *s2, size_t n);
+int strcasecmp(const char *s1, const char *s2);
+int strncasecmp(const char *s1, const char *s2, size_t n);
+</pre>
+
+<p>
+これらは2つの文字列 s1 と s2 を比較し，
+<table border=1>
+<tr><td>条件</td><td>戻り値</td></tr>
+<tr><td>s1 &lt; s2</td><td>0より小さい数</td></tr>
+<tr><td>s1 ==   s2</td><td>0</td></tr>
+<tr><td>s1 &gt; s2</td><td>0より大きい数</td></tr>
+</table>
+という結果を返す．
+文字の大小関係は <a href="#ascii">ASCII コード</a>での数値の大小関係で定義される．
+</p>
+
+<p>
+strncmp, strncasecmp は s1 の先頭 n 文字についてのみ，比較を行う．
+</p>
+
+<p>
+strcasecmp, strncasecmp は大文字，小文字を区別せずに（例えば A と a は同じとみなして）比較する．
+</p>
+
+<h4>文字や文字列の検索</h4>
+
+<pre class="program">
+char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);
+char *index(const char *s, int c);
+char *rindex(const char *s, int c);
+char *strstr(const char *haystack, const char *needle);
+</pre>
+
+<p>
+strchr, index は，文字列 s を先頭から探して最初に c の文字が現れたところへのポインタを返す．
+</p>
+
+<p>
+strrchr, rindex は，文字列 s を最後尾から探して最初に c の文字が現れたところへのポインタを返す．
+</p>
+
+<p>
+strstr は，文字列 haystack を先頭から探して，最初に needle が見つかったところへのポインタを返す．
+</p>
+
+<p>
+どれも，見つからなかった場合は NULL が戻り値になる．
+</p>
+
+<p>
+以下のプログラムは，ファイルパスの構成要素を切り出して出力する．
+</p>
+
+<a name="index.c">
+<a href="resource/index.c">index.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;string.h&gt;
+     3  #include &lt;sys/param.h&gt;
+     4
+     5  int main(void)
+     6  {
+     7          int i;
+     8          char line_buf[MAXPATHLEN];
+     9          char *p, *np;
+    10
+    11          while (fgets(line_buf, MAXPATHLEN, stdin) != NULL) {
+    12                  i = 0;
+    13                  p = line_buf;
+    14                  while ((np = index(p, '/')) != NULL) {
+    15                          *np = '\0';
+    16                          printf("%d: %s\n", i++, p);
+    17                          p = np + 1;
+    18                  }
+    19                  printf("%d: %s\n", i, p);
+    20          }
+    21
+    22          return 0; 
+    23  }
+</pre>
+
+<p>
+8行目の MAXPATHLEN は，システムで定義されているパス名の最大長である．
+MAXPATHLEN は sys/param.h で定義されている．
+これをコンパイル，実行すると以下の結果が得られる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+dir0/dir1/dir2/dir3/file
+0: dir0
+1: dir1
+2: dir2
+3: dir3
+4: file
+
+<img src="picture/Ctrl-D.png" alt="[Ctrl-D]"></b>
+$
+</pre>
+
+<p>
+このプログラムは1つの文字列中に含まれる '/' を index を用いて検索し，見つかったら，その文字を '\0' に置き換える．
+文字列とは終端文字 '\0' までの文字配列であるため，'/' を '\0' に置き換えることで，1つの文字列を複数の文字列に分割している．
+</p>
+
+<p>
+下図では配列の4番目に格納されている '/' を '\0' に置き換えている．
+これにより，元の配列が表す文字列は "dir0" となる．
+また，配列の9番目に格納されている '/' を '\0' に置き換えている．
+これにより，元の配列の5番目の要素を指すポインタの先にある文字列は "dir1" となる．
+</p>
+
+<pre class="figure">
+<img src="picture/string2.png" alt="文字の置換">
+</pre>
+
+<p>
+このように文字列をコピーすることなく，文字列の一部を切り出すことができる（ただし，この切り出し方では，元の文字列も変わることに注意）．
+</p>
+
+<h4>文字列のコピー，連結（1）</h4>
+
+<pre class="program">
+size_t strlcpy(char *dst, const char *src, size_t size);
+size_t strlcat(char *dst, const char *src, size_t size);
+</pre>
+
+<p>
+  注意1： これらの関数は BSD 系の UNIX に導入されたものであるため，Linux では環境によっては使えないことがある．
+  使えない場合には，libbsd というライブラリをインストールすれば使えるようになるはずである．
+  情報科学類コンピューティング環境の Linux では使えるようである．
+  <br>
+  注意2： Linux では strlcpy 関数よりもさらに安全で効率の良い strscpy 関数が提案されており，
+  strlcpy を strscpy に書き換える試みが行われている．
+  とはいえ，strlcpy と strscpy は返り値を除けば動作は同じであり，strlcpy を使っても安全なコードになる場合も多い．
+  関連する情報は以下の Web ページにある．
+  <ul>
+    <li><a href="https://lwn.net/Articles/659214/">LWN.net: strscpy() and the hazards of improved interfaces</a>
+    <li><a href="https://lwn.net/Articles/905777/">LWN.net: Ushering out strlcpy()</a>
+    <li><a href="https://qiita.com/mhiramat/items/e5c3218c776f6581de9b">Linuxカーネルにおけるstrn系関数の挙動のまとめ</a>
+  </ul>
+</p>
+
+<p>
+strlcpy は src の文字列を dst にコピーする．
+strlcat は src の文字列を dst の文字列の後ろに（dst の終端文字がある場所から始まる領域に）コピーする．
+size はコピー先 dst のサイズを表す．
+strlcpy の引数 size に与える値は，コピー先 dst のバッファのサイズである．
+strlcat の引数 size に与える値は，コピー先 dst にすでに入っている文字列の長さも含んだバッファのサイズである．
+</p>
+
+<p>
+strlcpy, strlcat は，src の文字列を全てコピーできたかどうかに関わらず，コピー先の文字列（dst の文字列）に終端文字0を付ける．
+従って，strlcpy は最大 size - 1 文字コピーし，strlcat は最大 size - strlen(dst) - 1 文字コピーする．
+</p>
+
+<p>
+strlcpy, strlcat は，それらが作成しようとした文字列の長さを戻り値として返す（実際に作成した文字列の長さではない）．
+すなわち，strlcpy の戻り値は src の文字列の長さ strlen(src) であり，strlcat の戻り値は dst の文字列の長さと src の文字列の長さの和である．
+</p>
+
+<p>
+以下は strlcpy, strlcat を使用して文字列のコピーを行う例である．
+コピー先のバッファの大きさは sizeof 演算子により取得している（sizeof(配列) の値は配列のサイズであるが，sizeof(ポインタ) の値はポインタそのもののサイズであるため，sizeof(ポインタ) はバッファの大きさを得るためには使えないことに注意）．
+</p>
+
+<a href="resource/strlcpy.c">strlcpy.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;string.h&gt;
+     3
+     4  int main(void)
+     5  {
+     6          char buf5[5];
+     7          char buf20[20];
+     8          char *s1 = "01234567890";
+     9          char *s2 = "abcdefghijklmnopqrstuvwxyz";
+    10          int len;
+    11
+    12          len = strlcpy(buf5, s1, sizeof(buf5));
+    13          printf("copy to buf5:  s1=\"%s\", len-s1=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    14                 s1, len, buf5, strlen(buf5));
+    15
+    16          len = strlcpy(buf20, s1, sizeof(buf20));
+    17          printf("copy to buf20: s1=\"%s\", len-s1=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    18                 s1, len, buf20, strlen(buf20));
+    19
+    20          len = strlcat(buf20, s2, sizeof(buf20));
+    21          printf("cat  to buf20: s2=\"%s\", len-s1s2=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    22                 s2, len, buf20, strlen(buf20));
+    23
+    24          return 0;
+    25  }
+</pre>
+
+<p>
+これをコンパイル，実行すると以下のような結果が得られる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+copy to buf5:  s1="01234567890", len-s1=11, str-in-buf="0123", len-str-in-buf=4
+copy to buf20: s1="01234567890", len-s1=11, str-in-buf="01234567890", len-str-in-buf=11
+cat  to buf20: s2="abcdefghijklmnopqrstuvwxyz", len-s1s2=37, str-in-buf="01234567890abcdefgh", len-str-in-buf=19
+$
+</pre>
+
+<p>
+dst に用意されているバッファの長さを超えてはコピーされないことがわかる．
+</p>
+
+<p>
+strlcpy，strlcat は全ての UNIX で用意されているわけではない．
+使用できない場合には以下の関数を使用するしかないが，これらの関数を使うとバッファオーバーフローの脆弱性をより含ませやすくなるため，使用には注意が必要である．
+</p>
+
+<pre class="program">
+char *strncpy(char *dst, const char *src, size_t n);
+char *strncat(char *dst, const char *src, size_t n);
+char *strcpy(char *dst, const char *src);
+char *strcat(char *dst, const char *src);
+</pre>
+
+<p>
+strncpy は src の文字列を終端文字0も含めて dst に最大 n 文字コピーする．
+strncpy は src の文字列が n 文字よりも短かった場合，dst のバッファ内の文字列よりも後ろの部分を0で埋める．
+strncat は src の文字列を dst の文字列の後ろに（dst の終端文字がある場所から始まる領域に）最大 n 文字コピーし，その後に終端文字0をコピーする．
+</p>
+strncpy，strncat は，コピーした n 文字に終端文字0が含まれるかどうかはチェックしない．
+strncpy でコピーした n 文字に終端文字0が含まれない場合には，dst のバッファの中身は終端文字で終わらない文字型データの並び（文字列ではないもの）になる．
+よって，その中身を文字列として printf などによって表示することはできない．
+strncat は，コピー先のバッファの空き部分の長さが n 文字以下だった場合には，バッファの長さを超えてコピーを行う（バッファオーバーフローを起こす）ことになる．
+</p>
+
+<p>
+strcpy は src の文字列を終端文字0も含めて dst にコピーする．
+strcat は src の文字列を dst の文字列の後ろに（dst の終端文字がある場所から始まる領域に）コピーし，最後に終端文字0を追加する．
+</p>
+
+<p>
+strncpy, strncat, strcpy, strcat の戻り値は単に dst である．
+よって，strlcpy, strlcat と異なり，全ての src の文字列がコピーできたのかどうかは戻り値からはわからない．
+</p>
+
+<p>
+strcat, strcpy では，コピー先のバッファのサイズを指定できないため，バッファオーバーフローの脆弱性をより含ませやすい．これらの関数の使用はできる限り避けたほうが良い．
+</p>
+
+<h4>文字列のコピー，連結（2）</h4>
+
+<p>
+printf の仲間の関数である snprintf を用いることによっても文字列のコピーと連結を行うことができる．
+</p>
+
+<pre class="program">
+int snprintf(char *dst, size_t size, const char *format, ...);
+</pre>
+
+<p>
+snprintf は printf とほぼ同じように使用できるが，結果は dst に文字列として格納される．
+size はバッファ dst のサイズである．
+終端文字 0 が末尾に追加されるため，最大 size - 1 文字が dst に出力される．
+</p>
+
+<p>
+snprintf の戻り値は，もし出力バッファが無限大であった場合に何文字出力されたか（終端文字 0 は含まない）である．
+実際に何文字出力されたかではない．  
+すなわち，戻り値と size を比較することにより，十分な大きさのバッファを提供していたかどうかがわかる．
+</p>
+
+<p>
+上記の strlcpy, strlcat を使用したプログラムを snprintf を用いて書き直すと以下のようになる．
+</p>
+
+<a href="resource/snprintf.c">snprintf.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;string.h&gt;
+     3
+     4  int main(void)
+     5  {
+     6          char buf5[5];
+     7          char buf20[20];
+     8          char *s1 = "01234567890";
+     9          char *s2 = "abcdefghijklmnopqrstuvwxyz";
+    10          int len;
+    11
+    12          len = snprintf(buf5, sizeof(buf5), "%s", s1);
+    13          printf("copy to buf5:  s1=\"%s\", len-s1=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    14                 s1, len, buf5, strlen(buf5));
+    15
+    16          len = snprintf(buf20, sizeof(buf20), "%s", s1);
+    17          printf("copy to buf20: s1=\"%s\", len-s1=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    18                 s1, len, buf20, strlen(buf20));
+    19
+    20          len = snprintf(buf20, sizeof(buf20), "%s%s", s1, s2);
+    21          printf("cat  to buf20: s2=\"%s\", len-s1s2=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    22                 s2, len, buf20, strlen(buf20));
+    23
+    24          return 0;
+    25  }
+</pre>
+
+<p>
+これをコンパイル，実行すると以下のように同じ結果が得られる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+copy to buf5:  s1="01234567890", len-s1=11, str-in-buf="0123", len-str-in-buf=4
+copy to buf20: s1="01234567890", len-s1=11, str-in-buf="01234567890", len-str-in-buf=11
+cat  to buf20: s2="abcdefghijklmnopqrstuvwxyz", len-s1s2=37, str-in-buf="01234567890abcdefgh", len-str-in-buf=19
+$
+</pre>
+
+<p>
+snprintf は printf と同じようにフォーマットを指定しての文字列出力ができるため，数値の文字列への変換と文字列の結合などを混在して行えるのが便利である．
+</p>
+
+<h4>その他の文字列操作関数</h4>
+
+<pre class="program">
+char  *strdup(const char *s);                          /* 文字列の複製 */
+char  *strfry(char *string);                           /* 文字列のランダム化 */
+char  *strsep(char **stringp, const char *delim);      /* トークンの切り出し */
+char  *strtok(char *s, const char *delim);             /* トークンへの分解 */
+size_t strcspn(const char *s, const char *reject);     /* 文字セットに含まれない文字数 */
+char  *strpbrk(const char *s, const char *accept);     /* 文字セットに含まれる文字の検索 */
+size_t strspn(const char *s, const char *accept);      /* 文字セットに含まれる文字数 */
+int    strcoll(const char *s1, const char *s2);        /* ロケールに基づく文字列比較 */
+size_t strxfrm(char *dst, const char *src, size_t n);  /* ロケールに基づいた文字列変換 */
+</pre>
+
+<p>
+strdup は関数の内部で動的にメモリ領域を確保することに注意が必要である．
+strdup で作られた文字列のためのメモリ領域は，使用後に free によって解放する必要がある．
+</p>
+
+<h3><a name="sec:numio">文字列と数値の変換</a></h3>
+
+<p>
+getchar や fgets で数字を入力として受け取っても，受け取った入力はその数字が表す数ではなく文字または文字列である．
+'1' は文字定数であり，その値は 0x31 であり 1 ではない．
+"123" という文字列は 0x31, 0x32, 0x33, 0x00 という文字の並びであり，123 という数値とは異なる．
+表示通りの数値で計算するためには，文字や文字列を数値に変換する必要がある．
+逆に，123という数値はそのままでは表示することができず，表示するためには '1', '2', '3' という文字の並び，または "123" という文字列に変換する必要がある．
+</p>
+
+<p>
+以下のライブラリ関数を用いると，文字列を数値に変換することができる．
+sscanf は scanf と同じバッファオーバーフローの脆弱性を含ませやすいので，使用には注意が必要である．
+</p>
+
+<pre class="program">
+long int          strtol(const char *nptr, char **endptr, int base);
+unsigned long int strtoul(const char *nptr, char **endptr, int base);
+double            strtod(const char *nptr, char **endptr);
+long              atol(const char *nptr);
+int               atoi(const char *nptr);
+double            atof(const char *nptr);
+int               sscanf(const char *str, const char *format, ...);
+</pre>
+
+<p>
+数値を文字列に変換するライブラリ関数として sprintf, snprintf が使用できる．
+sprintf はバッファオーバーフロー脆弱性を非常に含ませやすいため．非常に注意深く使用する必要がある．
+snprintf では書き出す最大文字数を指定できるので，sprintf に代わって常に snprintf を使用すべきである．
+</p>
+
+<pre class="program">
+int sprintf(char *str, const char *format, ...);
+int snprintf(char *str, size_t size, const  char *format, ...);
+</pre>
+
+<h2><a name="sec:pointer2">ポインタ（2）</a></h2>
+
+<h3>動的メモリ確保</h3>
+
+malloc によって実行時に動的にメモリ領域を確保した場合，確保した領域にアクセスするにはポインタを使用する必要がある．
+動的メモリ確保は，プログラムを実行してみないと確保すべきメモリの量がわからない場合や，一時的に大きなサイズのメモリを確保する必要がある場合などに便利である．
+しかし，注意すべき点も多く，間違って使用すると発見しにくいバグの原因となる．
+
+<h4>malloc と free</h4>
+
+<p>
+malloc は初期化されていないメモリ領域をヒープ領域内に動的に確保し，そこへのポインタ値を返す．
+calloc は0に初期化されたメモリ領域をヒープ領域内に動的に確保し，そこへのポインタ値を返す．
+free は malloc により確保されたメモリ領域を解放する．
+</p>
+
+<pre class="program">
+#include &lt;stdlib.h&gt;
+
+void *malloc(size_t size);
+void *calloc(size_t count, size_t size);
+void free(void *ptr);
+</pre>
+
+<p>
+malloc によって確保されたメモリ領域の内容は不定であり，0に初期化されているわけではない．
+一方，calloc により確保されたメモリ領域の内容は0である．
+また，free は解放するメモリ領域の内容を消去しない．
+</p>
+
+<p>
+malloc で確保されたメモリ領域はプログラムのどこでも使用できる．
+大域変数のための領域は，コンパイル時にその大きさが決まり，プログラム実行開始時に確保されるが，
+malloc で確保されるメモリ領域は，malloc が呼び出された時点で，引数で指定された大きさの領域が確保される．
+実行状況に基づいて計算した値などを malloc の引数に与えることによって，必要なだけのメモリ領域を確保できる．
+malloc が呼び出されなければ，そのメモリ領域は確保されない．
+</p>
+
+<p>
+上記の strlcpy, strlcat を使用して文字列のコピーを行うプログラムを，配列をローカル変数として宣言するのではなく malloc を用いて確保するように書き直すと以下のようになる．
+</p>
+
+<a href="resource/malloc1.c">malloc1.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;string.h&gt;
+     4
+     5  int main(void)
+     6  {
+     7          char *buf5;
+     8          char *buf20;
+     9          char *s1 = "01234567890";
+    10          char *s2 = "abcdefghijklmnopqrstuvwxyz";
+    11          int len;
+    12
+    13          buf5 = malloc(5);
+    14          if (buf5 == NULL) {
+    15                  perror("malloc");
+    16                  exit(1);
+    17          }
+    18
+    19          buf20 = malloc(20);
+    20          if (buf20 == NULL) {
+    21                  perror("malloc");
+    22                  exit(1);
+    23          }
+    24
+    25          len = strlcpy(buf5, s1, 5);
+    26          printf("copy to buf5:  s1=\"%s\", len-s1=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    27                 s1, len, buf5, strlen(buf5));
+    28
+    29          len = strlcpy(buf20, s1, 20);
+    30          printf("copy to buf20: s1=\"%s\", len-s1=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    31                 s1, len, buf20, strlen(buf20));
+    32
+    33          len = strlcat(buf20, s2, 20);
+    34          printf("cat  to buf20: s2=\"%s\", len-s1s2=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    35                 s2, len, buf20, strlen(buf20));
+    36
+    37          free(buf5);
+    38          free(buf20);
+    39
+    40          return 0;
+    41  }
+</pre>
+
+<p>
+関数の引数に配列名だけを与えると，その配列の先頭アドレスがその関数に渡される．
+関数の引数に配列名だけを与えた場合とポインタ変数を与えた場合とで，プログラムは非常に似通ったものになるが，以下の注意点，相違点がある．
+<ul>
+<li> malloc は領域を確保できない場合にNULLを返すため，そのチェックを忘れないようにする（14-17，20-23行目）．</li>
+<li> 直後にプログラムが終了するため実際上の意味はないが，確保した領域を37, 38行目で free により解放している．</li>
+<li>strlcpy, strlcat に渡すコピー先のバッファの大きさとしては malloc の引数で指定した大きさを与える必要がある（25，29，33行目）．
+配列に対して sizeof 演算子を用いるとその配列の大きさを取得できるが，ポインタ型変数に対して sizeof 演算子を用いるとその変数の大きさを取得することになるためである．
+以下のように sizeof 演算子を使用しても，確保した領域の大きさを取得することはできない．</li>
+</ul>
+</p>
+
+<pre class="program">
+    25          len = strlcpy(buf5, s1, sizeof(buf5));
+</pre>
+
+<h4>使用上の注意</h4>
+
+<p>
+malloc で確保した範囲を超えるメモリ領域にアクセスしてはいけない．
+ローカル変数や大域変数として確保したメモリ領域へのアクセスと同様に，malloc で確保したメモリ領域へのアクセスにおいても，確保したメモリ領域の範囲内かどうかのチェックは行われない．
+確保した範囲を超えてアクセスした場合，確保したサイズや実行状態により，セグメンテーションフォルトが起きることもあり得るし，アクセスできてしまうこともある．
+アクセスできてしまうと，プログラムが動いたり動かなかったり，データ破壊が起こったり起こらなかったりするため，わかりにくいバグになる．
+確保したメモリ領域の範囲内だけを使用するように常に意識する必要がある．
+</p>
+
+<p>
+以下は，上記のプログラムの buf20 を buf5 に置き換えるなどの修正を行って，確保したサイズを超えてアクセスした例である．
+26, 30行目の buf20 を用いるべき場所で buf5 を用いたことにより，確保したメモリ領域を超えた部分まで文字列をコピーしている．
+24行目で bzero により buf20 の内容を0に初期化し，34行目で buf20 の内容を出力している．
+初期化から出力までの間，buf20 には全くアクセスしていない．
+</p>
+
+<a href="resource/malloc2.c">malloc2.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;string.h&gt;
+     4
+     5  int main(void)
+     6  {
+     7          char *buf5;
+     8          char *buf20;
+     9          char *s1 = "01234567890";
+    10          char *s2 = "abcdefghijklmnopqrstuvwxyz";
+    11          int len;
+    12
+    13          buf5 = malloc(5);
+    14          if (buf5 == NULL) {
+    15                  perror("malloc");
+    16                  exit(1);
+    17          }
+    18
+    19          buf20 = malloc(20);
+    20          if (buf20 == NULL) {
+    21                  perror("malloc");
+    22                  exit(1);
+    23          }
+    24          bzero(buf20, 20); /* fill the buffer with zero */
+    25
+    26          len = strlcpy(buf5, s1, 5);
+    27          printf("copy to buf5: s1=\"%s\", len-s1=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    28                 s1, len, buf5, strlen(buf5));
+    29
+    30          len = strlcat(buf5, s2, 20);
+    31          printf("cat  to buf5: s2=\"%s\", len-buf5s2=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    32                 s2, len, buf5, strlen(buf5));
+    33
+    34          printf("buf20: str-in-buf=\"%s\", len-str-in-buf=%ld\n", buf20, strlen(buf20));
+    35
+    36          free(buf5);
+    37          free(buf20);
+    38
+    39          return 0;
+    40  }
+</pre>
+
+<p>
+これをコンパイル，実行すると，特に実行時エラーは起こらない．
+ただし，表示される buf20 の内容は空文字列ではなく，buf5 に書き込んだデータの一部となっており，buf5 に対する strlcat が buf20 の内容までも破壊したことがわかる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+copy to buf5: s1="01234567890", len-s1=11, str-in-buf="0123", len-str-in-buf=4
+cat  to buf5: s2="abcdefghijklmnopqrstuvwxyz", len-buf5s2=30, str-in-buf="0123abcdefghijklmno", len-str-in-buf=19
+buf20: str-in-buf="mno", len-str-in-buf=3
+$
+</pre>
+
+<h4>free 後の誤使用</h4>
+
+<p>
+malloc で確保したメモリ領域を free した後に，その領域にアクセスすると何が起こるかは不定である．
+アクセス時にエラーになる場合もあるが，再利用され別のデータを格納するために使用されている場合もある．
+解放したメモリ領域へのアクセスは，データの破壊やデータの不正な読み出しなどのわかりにくい問題を引き起こす．
+</p>
+
+<p>
+解放後にポインタ変数に NULL を代入しておくことによって，誤ったポインタの使用をある程度は防ぐことができる．
+以下の例では，buf5 が参照するメモリ領域を2行目で解放した後，3行目で buf5 に NULL を代入している．
+4行目で buf5 が参照するメモリ領域に文字列をコピーしようとすると，実行時に NULL ポインタアクセスのエラーとなる．
+</p>
+
+<pre class="program">
+     1          buf5 = malloc(5);
+     2          free(buf5);
+     3          buf5 = NULL;
+     4          i = strlcpy(buf5, d, 5);
+</pre>
+
+<h4>メモリリーク</h4>
+
+<p>
+メモリリークとは，確保したメモリ領域を解放しないことにより，その領域を使用しておらず使用する予定もないのに，確保したままになることを指す．
+メモリリークが繰り返し起きた場合，大量にメモリが浪費された状態になる．
+最終的には，メモリ確保ができなくなる．
+malloc で確保したメモリ領域外にアクセスした場合と同じく，メモリリークが起きた場合にも，プログラムは一見正常に動いているように見えることがある．
+しかし，長期間動作するプログラムにおいて，月単位，年単位でメモリリークが蓄積された結果メモリ確保ができなくなることもあり，メモリリークは非常に発見が難しいバグである．
+</p>
+
+<p>
+以下は，非常に単純なメモリリークを起こすプログラムの例である．
+確保した領域へのポインタを12行目で buf に代入し，18-20行目で使用している．
+この領域を解放しないまま，別の領域へのポインタを22行目で buf に代入してしまっている．
+その結果，12行目で確保した領域へのポインタが失われ，その領域を解放できなくなっている．
+</p>
+
+<a href="resource/malloc3.c">malloc3.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;string.h&gt;
+     4
+     5  int main(void)
+     6  {
+     7          char *buf;
+     8          char *s1 = "01234567890";
+     9          char *s2 = "abcdefghijklmnopqrstuvwxyz";
+    10          int len;
+    11
+    12          buf = malloc(5);
+    13          if (buf == NULL) {
+    14                  perror("malloc");
+    15                  exit(1);
+    16          }
+    17
+    18          len = strlcpy(buf, s1, 5);
+    19          printf("copy to buf: s1=\"%s\", len-s1=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    20                 s1, len, buf, strlen(buf));
+    21
+    22          buf = malloc(20);
+    23          if (buf == NULL) {
+    24                  perror("malloc");
+    25                  exit(1);
+    26          }
+    27
+    28          len = strlcat(buf, s2, 20);
+    29          printf("cat  to buf: s2=\"%s\", len-bufs2=%d, str-in-buf=\"%s\", len-str-in-buf=%ld\n",
+    30                 s2, len, buf, strlen(buf));
+    31
+    32          free(buf);
+    33
+    34          return 0;
+    35  }
+</pre>
+
+<p>
+実行結果は正しく，短時間の実行では問題が発生しないことが，メモリリークの発見を難しくしている．
+</p>
+
+<a name="exam">
+<h2>練習問題</h2>
+
+<a name="exam201">
+<h3>練習問題(201)</h3>
+
+<p>
+講義資料の「文字列」の部分で示した<a href="#string3.c">string3.c</a>を変更して文字列定数の内容を書き換えると，セグメンテーションフォルトやバスエラーなどの実行時エラーが発生することを確かめよ．
+</p>
+
+<p>
+また，cc のオプションに -fwritable-strings を与えると文字列定数の内容の書き換えが可能になることも確かめよ．
+</p>
+
+<a name="exam202">
+<h3>練習問題(202)</h3>
+
+<p>
+講義資料の「標準入出力」の部分で示した <a href="#fgetsputs.c">fgets と puts を用いたプログラム fgetsputs.c</a> の LINE_LEN を 5 に変えて，コンパイル，実行すると以下の結果になる．
+どうしてこのような結果になるのか，その理由を調べよ．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+1234567890
+1234
+5678
+90
+
+abcdefg
+abcd
+efg
+
+<img src="picture/Ctrl-D.png" alt="[C-D]"></b>
+$
+</pre>
+
+<a name="exam203">
+<h3>練習問題(203)</h3>
+
+<p>
+引数に与えられた文字列に含まれる単語の数を数えて返り値として返す関数 wc を作成しなさい．単語とは，ホワイトスペース文字（空白、改行、改ページ、タブ）で区切られている長さ1以上の文字列とする．main 関数からいくつかの文字列を引数に与えて wc 関数を呼び出し，wc 関数が正しく動くことを確かめなさい．
+</p>
+<p>
+たとえば以下のようなテストプログラムを実行して，wc 関数が正しい結果を返すかどうかを確認するとよい．
+<pre>
+#include &lt;stdio.h&gt;
+#include &lt;ctype.h&gt;
+...
+
+int wc(char *str)
+{
+        ...
+}
+
+int main(void)
+{
+        char *str;
+
+        str = "University of Tsukuba"; // 3
+        printf("%d\n", wc(str));
+
+        str = "Hello\tworld!\nGood-bye\tworld!\n\n"; // 4
+        printf("%d\n", wc(str));
+
+        str = "    Ten little Indians standin' in a line;\n"
+              "        One toddled home and then there were nine.\n"
+              "    Nine little Indians swingin' on a gate;\n"
+              "        One tumbled off and then there were eight.\n"; // 30
+        printf("%d\n", wc(str));
+
+        return 0;
+}
+</pre>
+</p>
+
+<a name="exam204">
+<h3>練習問題(204)</h3>
+
+<p>
+引数に与えられた文字列に含まれる単語のうち，一番出現頻度が高い単語を標準出力に出力する関数 print_freqword を作成しなさい．単語とは，英文字以外の文字で区切られている長さ1以上の英文字の列とする．一番出現頻度が高い単語が複数存在する場合には，それらのうちどの単語を出力してもよいものとする．
+引数の文字列内に単語が1つもない場合は考えなくてよいものとする．
+大文字と小文字は区別しない．すなわち，AbCとabcとaBCは同じ単語とみなす．
+</p>
+<p>
+引数に与えられた文字列において，各単語の文字列の長さは最大255であると仮定してよく，出現する単語の数は最大4095であると仮定してよい．
+</p>
+<p>
+main 関数からいくつかの文字列を引数に与えて print_freqword 関数を呼び出し，print_freqword 関数が正しく動くことを確かめなさい．
+たとえば以下のようなテストプログラムを実行して，print_freqword 関数が正しい結果を返すかどうかを確認するとよい．
+<pre>
+#include &lt;stdio.h&gt;
+#include &lt;ctype.h&gt;
+...
+
+void print_freqword(char *str)
+{
+        ...
+}
+
+int main(void)
+{
+        char str1[] = "One little, two little, three little Indians,\n"
+                      "Four little, five little, six little Indians,\n"
+                      "Seven little, eight little, nine little Indians,\n"
+                      "Ten little Indian boys.";
+        char str2[] = "        Mary Had a Little Lamb\n\n"
+                      "Mary had a little lamb,\nIts fleece was white as snow;\n"
+                      "And everywhere that Mary went,\nThe lamb was sure to go.\n\n"
+                      "It followed her to school one day,\nWhich was against the rule;\n"
+                      "It made the children laugh and play,\nTo see a lamb at school.\n";
+
+        print_freqword(str1); // "little"
+        print_freqword(str2); // "lamb"
+
+        return 0;
+}
+</pre>
+</p>
+
+<a name="exam205">
+<h3>練習問題(205)</h3>
+
+<p>
+講義資料の「文字や文字列の検索」の部分で示した <a href="#index.c">index.c</a> は，先頭に / がある場合や末尾が / で終わる場合をうまく扱えず，実行結果は次のようになる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+/dir1/dir2/dir3/file
+0:
+1: dir1
+2: dir2
+3: dir3
+4: file
+
+dir0/dir1/dir2/
+0: dir0
+1: dir1
+2: dir2
+3:
+
+<img src="picture/Ctrl-D.png" alt="[C-D]"></b>
+$
+</pre>
+
+<p>
+最初の例では先頭の / がパスの構成要素と認識され 0: のところに / が出力されるように，また次の例では末尾の / が無視され 3: が出力されないように，プログラムを変更せよ．
+</p>
+
+<a name="exam206">
+<h3>練習問題(206)</h3>
+
+<ol>
+<li>
+<p>
+Linux に付属する標準ライブラリ strlcpy, strdup と同じ動作をする関数 my_strlcpy, my_strdup を作成しなさい．
+strlcpy と my_strlcpy の組，および，strdup と my_strdup の組に main 関数から同じ引数を2つ以上のパターンで与えて呼び出し，同じ動作をすることを確かめなさい．
+作成する関数の中で，memcpy，memmove，bcopy などのメモリコピー用ライブラリ関数を使ってはならない．
+</p>
+
+<li>
+<p>
+作成した my_strlcpy の実行時間を元のライブラリ strlcpy の実行時間と比較しなさい．
+プログラム部分の実行時間は，その部分の前と後で計時関数（例えば clock 関数や clock_gettime 関数）を呼び出すことによって計測することができる．
+有意な差が出るように，1) 十分に長い文字列を用い，2) 最初に文字列を作成する時間は計測時間に含まれないようにし，3) 同一文字列に対して同じ関数を繰り返し実行すること．
+繰り返し呼び出す部分がある程度長い時間実行されるように，文字列の長さや繰り返しの回数を調節すること．
+
+</ol>
+
+<p>
+</p>
+
+<a name="exam207">
+<h3>練習問題(207)</h3>
+
+<p>
+strcmp, strcasecmp と同じ動作をする関数 my_strcmp, my_strcasecmp を作成せよ．
+main 関数から strcmp と my_strcmp の組および strcasecmp と my_strcasecmp の組に同じ引数をいくつかのパターンで与えて呼び出し，同じ動作をすることを確かめなさい．
+</p>
+
+<a name="exam208">
+<h3>練習問題(208)</h3>
+
+<p>
+strlen と同じ動作をする関数 my_strlen1, my_strlen2 を作成せよ．
+my_strlen1 はループで両文字列から1文字ずつ読んでは比較していく単純なプログラムとし，my_strlen2 は何らかの高速化のための工夫が施されたプログラムとする．
+my_strlen1 と my_strlen2 の実行時間を比較し，my_strlen2 が my_strlen1 よりも高速なものになるようにしなさい．
+また，Linux に付属する標準ライブラリ strlen の実行時間との比較も行いなさい．
+プログラム部分の実行時間は，その部分の前と後で計時関数（例えば clock 関数や clock_gettime 関数）を呼び出すことによって計測することができる．
+有意な差が出るように，1) 十分に長い文字列を用い，2) 最初に文字列を作成する時間は計測時間に含まれないようにし，3) 同一文字列に対して同じ関数を繰り返し実行すること．
+繰り返し呼び出す部分がある程度長い時間実行されるように，文字列の長さや繰り返しの回数を調節すること．
+</p>
+
+<p>
+<ul>
+<li>高速化の方法および，その方法で性能向上が期待できる理由を説明すること．
+<li>長い文字列としては自分で好きなものを作って良い．典型的な作り方としては，巨大なバッファを確保して端から文字や文字列で埋めていき，最後に '\0' を埋める．
+</ul>
+</p>
+
+<p>
+注意： strlenの結果を使用しないプログラムをコンパイルすると，C言語のコンパイラが最適化によってstrlenの処理全体を除去することがある．実験では，strlenの処理が除去されていないかどうか（実行が速すぎないかどうか）に気をつけること．除去されている場合には，strlenの結果を変数に格納したり，端末に表示したりするとよい．
+</p>
+
+
+<a name="exam209">
+<h3>練習問題(209)</h3>
+
+<p>
+以下のように，シェルのように1行入力を受け取り，コマンド名を表示し，入力のリダイレクション記号「<」があればその記号の後のファイル名を表示し，なければ console と表示するプログラムを作りなさい．
+入力行は，コマンド名だけ，または「コマンド名 < ファイル名」（< の前後にスペース1つ）という形式だけであると仮定してよい．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+command
+command name: command
+input: console
+command < file
+command name: command
+input: file
+$
+</pre>
+
+<p>
+メモリリークを起こさないようにする練習として，malloc や strdup などを用いてヒープ領域に確保したメモリ領域は必ず明示的に free すること．
+</p>
+
+<a name="exam210">
+<h3>練習問題(210)</h3>
+
+<p>
+練習問題(209)のプログラムを変更し，出力のリダイレクション記号「>」およびパイプ記号「|」にも対応できるようにしなさい．
+リダイレクション記号の出現順序としては，「<」の後に「>」が現れるパターンにのみ対応すればよい．
+また，パイプ記号は1つ現れる場合にのみ対応すればよい．
+パイプ記号が現れる場合は，パイプ記号の前後のそれぞれのコマンドについて，入出力先が表示されるようにする．
+</p>
+
+<p>
+<ul>
+<li>全ての意味ある記号の順序や組み合わせのパターンを作って実行した結果を載せること．
+<li>メモリリークを起こさないようにする練習として，malloc や strdup などを用いてヒープ領域に確保したメモリ領域は必ず明示的に free すること．
+</ul>
+</p>
+
+<a name="exam211">
+<h3>練習問題(211)</h3>
+
+<p>
+練習問題(210)のプログラムを変更し，
+<ol>
+<li>リダイレクション記号の出現順序が変わっても対応できるように
+<li>同じリダイレクション記号が複数出てきたらエラーメッセージが出力されるように
+<li>スペースがコマンド，リダイレクション記号，ファイル名の周りに入っていなくても，または複数個入っていても，同じように処理できるように
+</ol>
+しなさい．
+</p>
+
+<p>
+上記の全ての要求を満たしていることを示す実行結果をつけること．
+</p>
+
+<a name="exam212">
+<h3>練習問題(212)</h3>
+
+<p>
+標準入力から文字列を読み込み，その文字列の中の空白（ASCIIコード32）をすべてアンダースコア（ASCIIコード95）に変換し，タブ（ASCIIコード9）をすべて "[TAB]" という5文字に変換し，アルファベットの小文字をすべて大文字に変換し（アルファベットの大文字はそのままとし），それを出力データとして標準出力に出力するプログラムを記述しなさい．
+その後，そのプログラムは変換した（変換前の）文字の数を <i>n</i> としたとき，"<i>n</i> characters translated." という行を標準エラー出力に出力するようにしなさい．
+このプログラムはコマンドライン引数はとらないものとする（与えても無視される）．
+</p>
+<p>
+例えば，このプログラムから作った実行可能ファイルを trans とすると，trans は以下のように動作する．
+<pre>
+$ echo -e 'Twinkle, twinkle, little star,\tHow I wonder what you are!\nUp above the world so high,\tLike a diamond in the sky.' | ./trans
+TWINKLE,_TWINKLE,_LITTLE_STAR,[TAB]HOW_I_WONDER_WHAT_YOU_ARE!
+UP_ABOVE_THE_WORLD_SO_HIGH,[TAB]LIKE_A_DIAMOND_IN_THE_SKY.
+100 characters translated.
+$ cat bsd.txt
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+	1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+	2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+	3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+$ cat bsd.txt | ./trans
+REDISTRIBUTION_AND_USE_IN_SOURCE_AND_BINARY_FORMS,_WITH_OR_WITHOUT_MODIFICATION,_ARE_PERMITTED_PROVIDED_THAT_THE_FOLLOWING_CONDITIONS_ARE_MET:
+
+[TAB]1._REDISTRIBUTIONS_OF_SOURCE_CODE_MUST_RETAIN_THE_ABOVE_COPYRIGHT_NOTICE,_THIS_LIST_OF_CONDITIONS_AND_THE_FOLLOWING_DISCLAIMER.
+
+[TAB]2._REDISTRIBUTIONS_IN_BINARY_FORM_MUST_REPRODUCE_THE_ABOVE_COPYRIGHT_NOTICE,_THIS_LIST_OF_CONDITIONS_AND_THE_FOLLOWING_DISCLAIMER_IN_THE_DOCUMENTATION_AND/OR_OTHER_MATERIALS_PROVIDED_WITH_THE_DISTRIBUTION.
+
+[TAB]3._NEITHER_THE_NAME_OF_THE_COPYRIGHT_HOLDER_NOR_THE_NAMES_OF_ITS_CONTRIBUTORS_MAY_BE_USED_TO_ENDORSE_OR_PROMOTE_PRODUCTS_DERIVED_FROM_THIS_SOFTWARE_WITHOUT_SPECIFIC_PRIOR_WRITTEN_PERMISSION.
+648 characters translated.
+</pre>
+</p>
+
+
+<HR>
+<ADDRESS> <A HREF="https://www.cs.tsukuba.ac.jp/~oyama/">Yoshihiro Oyama</A> / &lt;oyama@cs.tsukuba.ac.jp&gt; </ADDRESS>
+
+</body>
+</html>
