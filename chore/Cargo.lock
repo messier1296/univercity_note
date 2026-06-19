@@ -35,6 +35,7 @@ dependencies = [
 name = "chore"
 version = "0.1.0"
 dependencies = [
+ "proconio",
  "rand",
 ]
 
@@ -160,6 +161,12 @@ checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
 ]
+
+[[package]]
+name = "proconio"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c10091de86d0dc939b37a115d74597cbe83af470032a1729d50c98ccee043cb0"
 
 [[package]]
 name = "quote"
