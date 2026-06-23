@@ -11,17 +11,18 @@
 簡単な常微分方程式でも振る舞いが非常に複雑になる
 
 $
-  cases((dif x_1) /dif t) = sigma (x_2 -x_1) ,(dif x_2)/(dif t) = -x_1 x_3 + r x_1 - x_2,(dif x_2)/(dif t) = x_1 x_2 - b x_3)
+  cases((dif x_1) /dif t = sigma (x_2 -x_1) ,(dif x_2)/(dif t) = -x_1 x_3 + r x_1 - x_2,(dif x_3)/(dif t) = x_1 x_2 - b x_3)
 $
 
 定理7.1
 
 $
-  cases((dif x) / (dif t) = f(t,x), x(t_0) = t_0)
+  cases((dif x) / (dif t) = f(t,x), x(t_0) = x_0)
 $
 $Omega = [a,b] times [c,d]$ 上で$f$は連続
 
-$f(t,x)$は$t$ について一様に$x$に関してリプシッツ連続なら$Omega$中の任意の内点$(t_0,x_0)$に対して$exists delta > 0 ,[t_0 - delta,t_0 + delta] -> t$で を満たす関数$x = x(t)$が存在する
+$f(t,x)$は$t$ について一様に$x$に関してリプシッツ連続なら$Omega$中の任意の内点$(t_0,x_0)$に対して$exists delta > 0$が存在し,
+$[t_0 - delta,t_0 + delta]$上で初期値問題を満たす関数$x = x(t)$が存在する
 
 リプシッツ連続
 
@@ -34,11 +35,11 @@ $exists k > 0, |f(t,x_1) - f(t,x_2)| <= k|x_1 - x_2| ,forall x_1,x_2 in [c,d]$
 解を以下のように構成する
 $
   x_0(t) = x_0 ("定数関数")\
-  x_n(t) = x_0 + integral_(t_0)^t f(t,x_(n-1) (t)) dif t \
+  x_n(t) = x_0 + integral_(t_0)^t f(tau,x_(n-1) (tau)) dif tau \
   lim_(n->infinity) x_n(t) = x(t)
 $
 
-$x_n(t) = x_0 + integral_(t_0)^t f(t,x_(n-1) (t)) dif t$を
+$x_n(t) = x_0 + integral_(t_0)^t f(tau,x_(n-1) (tau)) dif tau$を
 微分して $dif / (dif t) x(t) = f(t,x(t))$となることを目指す
 
 この収束性を確認する
@@ -48,7 +49,7 @@ $x_n(t) = x_0 + integral_(t_0)^t f(t,x_(n-1) (t)) dif t$を
 
 $Omega$上で$f(t,x)$は連続なので最大値,最小値を持つ
 
-特に$exists M >0$で$|f(t,x)| <= M " "((t,x) < Omega)$となる
+特に$exists M >0$で$|f(t,x)| <= M " "((t,x) in Omega)$となる
 
 ここで$(t_0,x_0)$を通る傾き$M,-M$の直線で定まる領域$A$が$Omega$に入る$delta$を定める.また$delta <= 1/(2k)$となるようにしておく
 
@@ -58,15 +59,58 @@ $n = 0$のときはOK
 
 $n-1$のときにOKとすると
 
-$x_n(t) = x_0 + integral_(t_0)^t f(t,x_n-1 (t)) dif t$より$|x_n(t) - x_0| = |integral_(t_0)^t f(t,x_(n-1)(t)) dif t| <= M |t- t_0|$
+$x_n(t) = x_0 + integral_(t_0)^t f(tau,x_(n-1) (tau)) dif tau$より$|x_n(t) - x_0| = |integral_(t_0)^t f(tau,x_(n-1)(tau)) dif tau| <= M |t- t_0|$
 
 よって$(t,x_n(t))$は$A$中に含まれる
 
 === $lim_(n-> infinity) x_n(t)$は収束する
 
-$x_n (t) = x_0 (t) + (x_1 (t) - x_0(t)) + dots (x_n(t) - x_0(t))$
+$x_n (t) = x_0 (t) + (x_1 (t) - x_0(t)) + dots + (x_n(t) - x_(n-1)(t))$
 
-$ lim_(n->infinity) =x_n(t) = x_0(t) + sum_(n_1)^infinity (x_n(t) - x_(n-1) (t)) $
+$ lim_(n->infinity) x_n(t) = x_0(t) + sum_(j=1)^infinity (x_j(t) - x_(j-1) (t)) $
+
+この級数が一様収束することを示せばよい.
+リプシッツ定数を$k$とする.
+まず
+$
+  |x_1(t) - x_0(t)| <= M |t-t_0|
+$
+である.
+また
+$
+  |x_n(t) - x_(n-1)(t)|
+  <= integral_(t_0)^t k |x_(n-1)(tau) - x_(n-2)(tau)| dif tau
+$
+である.
+帰納法により
+$
+  |x_n(t) - x_(n-1)(t)|
+  <= M k^(n-1) |t-t_0|^n / n!
+$
+となる.
+右辺の級数
+$
+  sum_(n=1)^infinity M k^(n-1) delta^n / n!
+$
+は収束するので,ワイエルシュトラスの判定法より$sum (x_n - x_(n-1))$は一様収束する.
+したがって$x_n(t)$はある連続関数$x(t)$に一様収束する.
+
+さらに$f$は連続なので
+$
+  f(t,x_(n-1)(t)) -> f(t,x(t))
+$
+も一様に成り立つ.
+よって積分式の極限を取ると
+$
+  x(t) = x_0 + integral_(t_0)^t f(tau,x(tau)) dif tau
+$
+となる.
+両辺を微分すれば
+$
+  (dif x)/(dif t) = f(t,x(t)),
+  quad x(t_0) = x_0
+$
+である.
 
 
 連立線形の方程式
@@ -77,7 +121,7 @@ $
   (dif x_n) / (dif t) = a_(n,1) (t) x_1 + dots a_(n n) x_n + f_n(t)\
 $
 
-$<=> (dif bold(x_1)) / (dif t) + bold(A)(t) x + bold(f) (t)$ と書ける
+$<=> (dif bold(x)) / (dif t) = bold(A)(t) bold(x) + bold(f) (t)$ と書ける
 
 右辺の$bold(f)(t)$ がある -> 非斉次方程式
 
@@ -87,23 +131,27 @@ $<=> (dif bold(x_1)) / (dif t) + bold(A)(t) x + bold(f) (t)$ と書ける
 斉次方程式の場合
 
 $ (dif bold(x))/ (dif t) = A(t) bold(x) $
-$ "初期値" bold(x) (s) = bold(x) $
+$ "初期値" bold(x) (s) = bold(x_0) $
 
 線形なのでリプシッツ連続
 よって解が一意に存在する
 
 この解を$bold(x) (t,s,bold(x_0))$とする
 
-ここで$ (dif) /(dif t) (dif bold(x) (t,s,bold(x_0)) + beta bold(x) (t,s,y_0)) &= alpha dif/(dif t) bold(x) (t,s,bold(x_0)) + beta dif / (dif t) bold(x) (t,s,y_0)\
-&= alpha A(t) bold(x) (t,s,bold(x_0)) + beta A(t) bold(x) (t,s,y_0)\
-&= A(t) (alpha bold(x) (t,s,bold(x)) + beta bold(x) (t,s,y_0)) $
+ここで
+$
+  dif/(dif t) (alpha bold(x) (t,s,bold(x_0)) + beta bold(x) (t,s,bold(y_0)))
+  &= alpha dif/(dif t) bold(x) (t,s,bold(x_0)) + beta dif / (dif t) bold(x) (t,s,bold(y_0))\
+  &= alpha A(t) bold(x) (t,s,bold(x_0)) + beta A(t) bold(x) (t,s,bold(y_0))\
+  &= A(t) (alpha bold(x) (t,s,bold(x_0)) + beta bold(x) (t,s,bold(y_0)))
+$
 
-よって$alpha bold(x) (t,s,bold(x_0)) + beta bold(x) (t,s,y_0)$
+よって$alpha bold(x) (t,s,bold(x_0)) + beta bold(x) (t,s,bold(y_0))$
 
 は
 $ (dif bold(x))/ (dif t) = A(t) bold(x) $
-の解
-またその初期値は$t = s$ で$alpha bold(x_0) + beta bold(y_0)$となる
+の解である.
+またその初期値は$t = s$ で$alpha bold(x_0) + beta bold(y_0)$となる.
 
 つまり$t = s$における初期値$bold(x)$ に対して対応する解$bold(x) (t,s,bold(x_0))$ を割り当てる写像は線形写像になっている
 
@@ -118,7 +166,7 @@ $ (dif bold(x))/ (dif t) = A(t) bold(x) $
 このとき$R(t,s) = e^(A(t-s))$ となる
 
 $
-  e^A & = I + A + 1/2 A^2 + 1/3! A^3 + dots \
+  e^A & = I + A + 1/2! A^2 + 1/3! A^3 + dots \
       & = sum_(k=0)^infinity 1/ k! A^k
 $
 
@@ -143,13 +191,22 @@ $e^(t A)$の計算
 
 $A$が対角化可能となら
 
-$A^k = dots$ 省略
+$A = T D T^(-1)$, $D = mat(lambda_1, , 0; , dots.down, ; 0, , lambda_n)$と書ける.
+このとき
+$
+  A^k = T D^k T^(-1)
+$
+なので
+$
+  e^(t A) = T e^(t D) T^(-1)
+$
+である.
 
 $dif /(dif t) bold(x) = A bold(x)$の解は
 
 $
   bold(x) & = e^(A t) bold(x_0) \
-          & = T mat(e^(lambda_1 T), , 0; , dots.down, ; 0, , e^(lambda_n t)) T^(-1) bold(x_0) \
+          & = T mat(e^(lambda_1 t), , 0; , dots.down, ; 0, , e^(lambda_n t)) T^(-1) bold(x_0) \
           & = c_1 e^(lambda_1 t) bold(P_1) + dots + c_n e^(lambda_n t) bold(P_n)
 $
 
@@ -168,10 +225,18 @@ $n = 2$ のとき$A$を実行列として
 
 $lambda_1,lambda_2$が複素数のとき
 
-$lambda_1 = a + b_i$
+$lambda_1 = a + b i$
 
-$lambda_1 = a - b_i$
+$lambda_2 = a - b i$
 とする
+
+このとき対応する実解は
+$
+  e^(a t) (C_1 cos b t + C_2 sin b t)
+$
+の形を含む.
+$a < 0$なら振動しながら$0$に近づき,$a > 0$なら振動しながら大きくなる.
+$a = 0$なら大きさを保って周期的に振動する.
 
 ---
 

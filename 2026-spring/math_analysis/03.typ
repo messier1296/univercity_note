@@ -5,7 +5,7 @@
 
 == 前回の課題
 
-(1) 二項分布$B_(m,k): P_k = binom(n, k) p^k (1-p)^k$
+(1) 二項分布$B(n,p): P_k = binom(n, k) p^k (1-p)^(n-k)$
 の確率母関数を考える
 
 $
@@ -15,12 +15,12 @@ $
 $
 
 (2)
-ポアソン分布 $P_(0,lambda)$
+ポアソン分布 $P(lambda)$
 
 $P_k = e^(-lambda) lambda^k / k!$
 
 $
-  P_(P_(0,lambda)) (x) & = sum_(k=0)^infinity e^(-lambda) / k! x^k \
+  P_(P_(0,lambda)) (x) & = sum_(k=0)^infinity e^(-lambda) lambda^k / k! x^k \
                        & = sum_(k=0)^infinity e^(-lambda) (lambda x )^k / k! \
                        & = e^(-lambda) times e^(lambda x) (because e^x = sum_(k=0)^infinity 1/k! x^k) \
                        & = e^(lambda(x-1))
@@ -226,12 +226,12 @@ ${bold(a_1) dots bold(a_n)}$が一次独立でかつ$V = {k_1 bold(a)_1 + dots +
 
   $k < l$とする
 
-  ${bold(a)_1 dots bold(a)_k}$は$V$の基底なので$bold(b)_i = C_(i,1) bold(a)_1 + dots + C_(i,k)bold(a)_k$とかける
+  ${bold(a)_1 dots bold(a)_k}$は$V$の基底なので$bold(b)_i = C_(i,1) bold(a)_1 + dots + C_(i,k) bold(a)_k$とかける
 
   すると
 
   $
-    lambda_1 bold(1) + dots + lambda_l bold(b)_l \
+    lambda_1 bold(b)_1 + dots + lambda_l bold(b)_l \
                                                  & = lambda_1(C_11 bold(a)_1 + dots + C_(1k) bold(a)_k) \
                                                  & + lambda_2(C_21 bold(a)_1 + dots + C_(2k) bold(a)_k) \
                                                  & + dots \
@@ -246,27 +246,32 @@ ${bold(a_1) dots bold(a_n)}$が一次独立でかつ$V = {k_1 bold(a)_1 + dots +
   $
     (lambda_1 C_11 + lambda_2 C_21 + dots + lambda_l C_(l 1)) bold(a)_1\
     &+
-    (lambda_2 C_11 + lambda_2 C_22 + dots + lambda_l C_(l 2)) bold(a)_2\
+    (lambda_1 C_12 + lambda_2 C_22 + dots + lambda_l C_(l 2)) bold(a)_2\
     &+ dots \
     &+
-    (lambda_k C_1k + dots + lambda_l C_(l k)) bold(a)_k\
+    (lambda_1 C_1k + dots + lambda_l C_(l k)) bold(a)_k\
   $
   となっている
   ここで${bold(a)_1 dots bold(a)_k}$は基底なので一次独立だから
   $
-    lambda_1 C_11 + dots lambda_l C_(l,1) = 0\
+    lambda_1 C_11 + dots + lambda_l C_(l,1) = 0\
     dots.v\
-    lambda_k C_1k + dots lambda_l C_(l,K) =0
+    lambda_1 C_1k + dots + lambda_l C_(l,k) =0
   $
   変数$l$個の$k$個の線形連立方程式のはず
 
-  今$k < l$としてるのでこの方程式には$(lambda_1 dots lambda_k) = (0,dots,0)$以外の解があるはず
+  今$k < l$としているので,未知数の方が方程式より多い.
+  よって同次連立方程式には$(lambda_1 dots lambda_l) = (0,dots,0)$以外の解がある.
 
-  するとこれは過程と矛盾する
+  その非自明解を使うと
+  $
+    lambda_1 bold(b)_1 + dots + lambda_l bold(b)_l = 0
+  $
+  となるので,${bold(b)_1 dots bold(b)_l}$の一次独立性に矛盾する.
 
-  $k<l$と仮定すると矛盾したので$k <= l$のはず
+  $k<l$と仮定すると矛盾したので$k >= l$である.
 
-  入れ替えれば$l >=k$もなりたつので$k =l$
+  $a$と$b$を入れ替えれば$l >= k$も成り立つので$k = l$
 ]
 
 ↑線形代数の抽象論の証明では線形方程式の理論が密接にリンクしている事がわかる
@@ -295,18 +300,23 @@ $
 $
 を満たしている写像
 
-$V$ｄねお演算の構造と$f(V)$での演算の構造が同じ形になっている
+$V$での演算の構造と$f(V)$での演算の構造が同じ形になっている
 
-線形写像 $f:V -> W$が全単射である
+有限次元ベクトル空間$V,W$が同じ体上で定義されているとき,
 
-$<=>$ $dim V = dim W$
-// TODO:本当か確認する
+$dim V = dim W$
+$<=>$ $V$と$W$の間に線形な全単射が存在する
 
-$<=>$ つまりベクトル空間は次元のみで定まる(次元と$K$の選び方で定まる)
+つまり有限次元ベクトル空間は,体を固定すれば次元のみで分類できる.
 
-$f()$が全単射
+ただし,任意の線形写像$f:V -> W$が$dim V = dim W$だけで全単射になるわけではない.
+例えば零写像は次元が同じでも全単射ではない.
 
-$<=>$ $V$の基底${bold(e)_1 dots bold(e)_n}$に対して${f(bold(e)_1) dots f(bold(e_n))}$がWの基底になる
+与えられた線形写像$f$が全単射
+
+$<=>$ $V$の基底${bold(e)_1 dots bold(e)_n}$に対して${f(bold(e)_1) dots f(bold(e)_n)}$が$W$の基底になる
+
+特に$dim V = dim W = n$のときは,$f$が全単射であることと$"rank"(f) = n$であることは同値である.
 
 === 行列,数ベクトルとベクトル空間
 
@@ -345,3 +355,40 @@ $
 (1) 一次独立であることを示す
 
 (2) その本数が最大であることを示す
+
+(解答)
+
+以下の3本を取る.
+$
+  v_1 = vec(1, 0, 0, 1),
+  quad
+  v_2 = vec(0, 1, 0, 1),
+  quad
+  v_6 = vec(0, 1, 1, 2)
+$
+
+まず一次独立性を示す.
+$
+  alpha v_1 + beta v_2 + gamma v_6 = 0
+$
+とすると,成分ごとに
+$
+  vec(alpha, beta + gamma, gamma, alpha + beta + 2 gamma) = vec(0,0,0,0)
+$
+である.
+第1成分から$alpha = 0$,第3成分から$gamma = 0$,第2成分から$beta = 0$となる.
+よってこの3本は一次独立である.
+
+次に最大性を示す.
+与えられたすべてのベクトルは
+$
+  x_4 = x_1 + x_2 + x_3
+$
+を満たしている.
+したがってこれらは$RR^4$の中の3次元部分空間
+$
+  {vec(x_1,x_2,x_3,x_4) | x_4 = x_1 + x_2 + x_3}
+$
+に含まれる.
+よって4本以上の一次独立な集合は取れない.
+3本の一次独立な集合が見つかったので,最大本数は3本である.
