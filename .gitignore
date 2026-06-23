@@ -4,8 +4,8 @@ __pycache__/
 .ruff_cache
 *Zone.Identifier
 .codex
-<<<<<<< Updated upstream
 test/
-=======
->>>>>>> Stashed changes
 .out
+2026-spring/math_engineer/lect-crowdwalk/work/.gradle/
+2026-spring/math_engineer/lect-crowdwalk/work/gen.csv
+2026-spring/math_engineer/lect-crowdwalk/work/log/

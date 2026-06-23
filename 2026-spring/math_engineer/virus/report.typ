@@ -2,7 +2,7 @@
 #show: setup
 
 #let my-title = "会話距離とマスクによる感染確率の数値シミュレーション"
-#let my-author = "今島隼人"
+#let my-author = "今村隼人"
 #let my-date = datetime(year: 2026, month: 6, day: 7)
 
 #set document(
