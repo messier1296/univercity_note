@@ -1,0 +1,294 @@
+学籍番号: 202410178
+名前: 今村隼人
+課題番号：4
+練習問題番号：404, 406, 408
+題名：プロセスの実行，リダイレクション，パイプによる同期
+
+1. 動作確認環境
+
+動作確認は自分の PC 上の WSL2 環境で行った。
+OS は Ubuntu 24.04 で，カーネルは
+Linux 6.6.87.2-microsoft-standard-WSL2 である。
+コンパイラは gcc 13.3.0 を用いた。
+
+2. 練習問題(404)
+
+2.1 プログラムの説明
+
+以下に，system 相当の関数 mysystem を実装した
+プログラムを示す。mysystem は fork で子プロセスを作り，
+子プロセスでは execve を用いて /bin/sh を実行する。
+コマンド文字列を sh の -c オプションへ渡すため，
+リダイレクション，パイプ，ワイルドカードの解釈は
+sh によって行われる。親プロセスは waitpid を呼び，
+子プロセスが終了するまで待つ。
+
+404.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+extern char **environ;
+
+int mysystem(const char *command) {
+  pid_t pid;
+  int status;
+
+  pid = fork();
+  if (pid < 0) {
+    perror("fork");
+    return 1;
+  }
+  if (pid == 0) {
+    char *argv[] = {"sh", "-c", (char *)command, NULL};
+
+    execve("/bin/sh", argv, environ);
+    perror("execve");
+    _exit(1);
+  }
+
+  if (waitpid(pid, &status, 0) < 0) {
+    perror("waitpid");
+    return 1;
+  }
+  return 0;
+}
+
+int main(void) {
+  mysystem("printf 'apple\\nbanana\\napricot\\n' > fruits.txt");
+  mysystem("cat fruit*.txt | grep '^a' | wc -l");
+  mysystem("rm fruits.txt");
+  return EXIT_SUCCESS;
+}
+
+2.2 コンパイルと実行結果
+
+以下のようにコンパイルして実行した。
+
+$ gcc -Wall -Wextra -std=c11 404.c -o /tmp/404
+$ /tmp/404
+2
+
+最初のコマンドでは > によって3行を fruits.txt へ
+書き込んだ。次のコマンドでは，ワイルドカード
+fruit*.txt でそのファイルを指定し，2本のパイプを
+含むコマンドを実行した。先頭が a の行は apple と
+apricot の2行であるため，正しく2と出力された。
+
+3. 練習問題(406)
+
+3.1 プログラムの説明
+
+以下に，標準入力と標準出力をファイルへ切り替えてから
+bc を実行するプログラムを示す。第1引数のファイルを
+読み込み専用で開き，第2引数のファイルを書き込み用で
+開く。dup2 によりそれぞれを標準入力と標準出力へ
+複製した後，execlp により bc を実行する。
+
+406.c
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main(int argc, char *argv[]) {
+  int input_fd, output_fd;
+
+  if (argc != 3) {
+    fprintf(stderr, "usage: %s input output\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  input_fd = open(argv[1], O_RDONLY);
+  if (input_fd < 0) {
+    perror(argv[1]);
+    return EXIT_FAILURE;
+  }
+  output_fd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (output_fd < 0) {
+    perror(argv[2]);
+    close(input_fd);
+    return EXIT_FAILURE;
+  }
+
+  if (dup2(input_fd, STDIN_FILENO) < 0 ||
+      dup2(output_fd, STDOUT_FILENO) < 0) {
+    perror("dup2");
+    close(input_fd);
+    close(output_fd);
+    return EXIT_FAILURE;
+  }
+  close(input_fd);
+  close(output_fd);
+
+  execlp("bc", "bc", (char *)NULL);
+  perror("execlp");
+  return EXIT_FAILURE;
+}
+
+3.2 コンパイルと実行結果
+
+以下のようにコンパイルした。
+
+$ gcc -Wall -Wextra -std=c11 406.c -o /tmp/406
+
+入力に用いたファイルの内容は以下の通りである。
+
+$ /bin/cat /tmp/bc_input.txt
+1+2
+a=4
+b=5
+b++
+a+b
+(2^16) % 60000
+sqrt(5)
+scale=3
+sqrt(5)
+
+第1引数に入力ファイル，第2引数に出力ファイルを指定して
+実行した。出力ファイルを表示すると，以下のようになった。
+
+$ /tmp/406 /tmp/bc_input.txt /tmp/bc_result.txt
+$ /bin/cat /tmp/bc_result.txt
+3
+5
+10
+5536
+2
+2.236
+
+入力した式に対する計算結果だけが第2引数のファイルへ
+書き込まれており，標準入力と標準出力を正しく
+切り替えてから bc を実行できた。
+
+4. 練習問題(408)
+
+4.1 プログラムの説明
+
+以下に，子プロセスと親プロセスが交互に1文字ずつ
+出力するプログラムを示す。子から親へ通知するパイプと，
+親から子へ通知するパイプを1本ずつ作ってから，fork を
+1回だけ実行する。子プロセスは数字を出力して親へ
+1バイトを書き込み，次に出力する必要があれば親からの
+入力を待つ。親プロセスは子から1バイトを読み込んでから
+英小文字を出力し，次に子が出力する必要があれば子へ
+1バイトを書き込む。この読み込み待ちによって，2つの
+プロセスの出力順を交互にしている。
+
+408.c
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+static void receive_token(int fd) {
+  char token;
+
+  if (read(fd, &token, 1) != 1) {
+    perror("read");
+    exit(EXIT_FAILURE);
+  }
+}
+
+static void send_token(int fd) {
+  char token = 0;
+
+  if (write(fd, &token, 1) != 1) {
+    perror("write");
+    exit(EXIT_FAILURE);
+  }
+}
+
+int main(int argc, char *argv[]) {
+  int child_to_parent[2], parent_to_child[2];
+  long count;
+  char *end;
+  pid_t pid;
+  int status;
+
+  if (argc != 2) {
+    fprintf(stderr, "usage: %s count\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+  errno = 0;
+  count = strtol(argv[1], &end, 10);
+  if (errno != 0 || *end != '\0' || count < 0) {
+    fprintf(stderr, "count must be a nonnegative integer\n");
+    return EXIT_FAILURE;
+  }
+
+  if (pipe(child_to_parent) < 0 || pipe(parent_to_child) < 0) {
+    perror("pipe");
+    return EXIT_FAILURE;
+  }
+  pid = fork();
+  if (pid < 0) {
+    perror("fork");
+    return EXIT_FAILURE;
+  }
+
+  if (pid == 0) {
+    close(child_to_parent[0]);
+    close(parent_to_child[1]);
+    for (long i = 0; i < count; i += 2) {
+      putchar('0' + (i / 2) % 10);
+      fflush(stdout);
+      if (i + 1 < count) {
+        send_token(child_to_parent[1]);
+      }
+      if (i + 2 < count) {
+        receive_token(parent_to_child[0]);
+      }
+    }
+    close(child_to_parent[1]);
+    close(parent_to_child[0]);
+    _exit(EXIT_SUCCESS);
+  }
+
+  close(child_to_parent[1]);
+  close(parent_to_child[0]);
+  for (long i = 1; i < count; i += 2) {
+    receive_token(child_to_parent[0]);
+    putchar('a' + (i / 2) % 26);
+    fflush(stdout);
+    if (i + 1 < count) {
+      send_token(parent_to_child[1]);
+    }
+  }
+  close(child_to_parent[0]);
+  close(parent_to_child[1]);
+  if (waitpid(pid, &status, 0) < 0) {
+    perror("waitpid");
+    return EXIT_FAILURE;
+  }
+  putchar('\n');
+  return EXIT_SUCCESS;
+}
+
+4.2 コンパイルと実行結果
+
+以下のようにコンパイルした。
+
+$ gcc -Wall -Wextra -std=c11 408.c -o /tmp/408
+
+出力文字数が偶数となる60を指定した結果は，以下の
+通りである。
+
+$ /tmp/408 60
+0a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d
+
+出力文字数が奇数となる15を指定した結果は，以下の
+通りである。
+
+$ /tmp/408 15
+0a1b2c3d4e5f6g7
+
+どちらの場合も，子プロセスによる数字と親プロセスに
+よる英小文字が交互に並び，指定した文字数だけ出力された。

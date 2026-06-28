@@ -1,0 +1,318 @@
+学籍番号: 202410178
+名前: 今村隼人
+課題番号：5
+練習問題番号：501, 504, 506
+題名：ファイルシステムとシグナルの利用
+
+1. 動作確認環境
+
+動作確認は自分の PC 上の WSL2 環境で行った。
+OS は Ubuntu 24.04 で，カーネルは
+Linux 6.6.87.2-microsoft-standard-WSL2 である。
+コンパイラは gcc 13.3.0 を用いた。
+
+2. 練習問題(501)
+
+2.1 プログラムの説明
+
+以下に，カレントディレクトリにあるファイルの名前と
+サイズを1行ずつ表示するプログラムを示す。opendir で
+カレントディレクトリを開き，readdir で各エントリを
+読む。各エントリについて stat を呼び出し，struct stat
+の st_size からファイルサイズを得て表示する。
+
+501.c
+
+#define _POSIX_C_SOURCE 200809L
+
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+
+int main(void) {
+  DIR *dir;
+  struct dirent *entry;
+
+  dir = opendir(".");
+  if (dir == NULL) {
+    perror("opendir");
+    return EXIT_FAILURE;
+  }
+
+  while ((entry = readdir(dir)) != NULL) {
+    struct stat st;
+
+    if (stat(entry->d_name, &st) < 0) {
+      perror(entry->d_name);
+      closedir(dir);
+      return EXIT_FAILURE;
+    }
+    printf("%s %lld\n", entry->d_name, (long long)st.st_size);
+  }
+
+  closedir(dir);
+  return EXIT_SUCCESS;
+}
+
+2.2 コンパイルと実行結果
+
+以下のようにコンパイルした。
+
+$ gcc -Wall -Wextra -std=c11 2026-spring/sys_pro/501.c -o /tmp/501
+
+確認用ディレクトリを作り，2つのファイルを置いて実行した。
+
+$ mkdir -p /tmp/syspro501-report05
+$ printf 'abc\n' > /tmp/syspro501-report05/a.txt
+$ printf 'hello\nworld\n' > /tmp/syspro501-report05/b.txt
+$ cd /tmp/syspro501-report05
+$ /tmp/501
+b.txt 12
+. 4096
+a.txt 4
+.. 36864
+
+a.txt は4バイト，b.txt は12バイトとして表示された。
+また，readdir が返した . と .. についても，stat で
+得られたディレクトリのサイズが表示された。
+
+3. 練習問題(504)
+
+3.1 プログラムの説明
+
+以下に，SIGFPE，SIGSEGV，SIGWINCH に対して
+シグナルハンドラを設定するプログラムを示す。引数が
+0 のときは整数のゼロ除算を行い，SIGFPE のハンドラで
+メッセージを表示する。引数が1のときは不正な
+メモリアクセスを行い，SIGSEGV のハンドラで
+メッセージとアクセス先アドレスを表示する。引数が2の
+ときは pause で停止し，SIGWINCH を受け取ると
+ウィンドウサイズ変更のメッセージを表示する。
+
+504.c
+
+#define _POSIX_C_SOURCE 200809L
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+static void handler(int signum, siginfo_t *info, void *context) {
+  (void)context;
+
+  if (signum == SIGFPE) {
+    printf("zero division occurred\n");
+  } else if (signum == SIGSEGV) {
+    printf("invalid memory access occurred: address=%p\n", info->si_addr);
+  } else if (signum == SIGWINCH) {
+    printf("window size changed\n");
+  }
+  fflush(stdout);
+  _Exit(EXIT_SUCCESS);
+}
+
+int main(int argc, char *argv[]) {
+  struct sigaction action;
+  int mode;
+
+  if (argc != 2) {
+    fprintf(stderr, "usage: %s 0|1|2\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  sigemptyset(&action.sa_mask);
+  action.sa_sigaction = handler;
+  action.sa_flags = SA_SIGINFO;
+  if (sigaction(SIGFPE, &action, NULL) < 0 ||
+      sigaction(SIGSEGV, &action, NULL) < 0 ||
+      sigaction(SIGWINCH, &action, NULL) < 0) {
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+
+  mode = atoi(argv[1]);
+  if (mode == 0) {
+    volatile int one = 1;
+    volatile int zero = atoi(argv[1]);
+    volatile int result = one / zero;
+    printf("%d\n", result);
+  } else if (mode == 1) {
+    volatile int *p = (int *)0x12345;
+    *p = 1;
+  } else if (mode == 2) {
+    pause();
+  } else {
+    fprintf(stderr, "argument must be 0, 1, or 2\n");
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+}
+
+3.2 コンパイルと実行結果
+
+以下のようにコンパイルした。
+
+$ gcc -Wall -Wextra -std=c11 2026-spring/sys_pro/504.c -o /tmp/504
+
+引数に0を指定した結果は，以下の通りである。
+
+$ /tmp/504 0
+zero division occurred
+
+引数に1を指定した結果は，以下の通りである。
+
+$ /tmp/504 1
+invalid memory access occurred: address=0x12345
+
+引数に2を指定した実行では，別のシェルから SIGWINCH を
+送って確認した。
+
+$ bash -c '/tmp/504 2 & pid=$!; sleep 1; kill -WINCH $pid; wait $pid'
+window size changed
+
+それぞれのシグナルに対して，設定したハンドラが実行され，
+対応するメッセージが表示された。
+
+4. 練習問題(506)
+
+4.1 プログラムの説明
+
+以下に，getchar にタイムアウト機能を追加した
+mygetchar を示す。SIGALRM のハンドラでタイムアウトを
+記録し，SIGINT のハンドラで割り込みを記録する。
+alarm を設定してから getchar を呼び出し，返り値が
+EOF であった場合には，タイムアウト，SIGINT，通常の
+EOF のどれであるかを調べて，それぞれ -2，-3，-1 を
+返す。通常の文字を読めた場合には，その文字の値を返す。
+
+506.c
+
+#define _POSIX_C_SOURCE 200809L
+
+#include <ctype.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
+
+static volatile sig_atomic_t timeout_occurred = 0;
+static volatile sig_atomic_t interrupt_occurred = 0;
+
+static void handler(int signum) {
+  if (signum == SIGALRM) {
+    timeout_occurred = 1;
+  } else if (signum == SIGINT) {
+    interrupt_occurred = 1;
+  }
+}
+
+int mygetchar(unsigned int seconds) {
+  struct sigaction alarm_action, int_action, old_alarm_action, old_int_action;
+  int c;
+
+  timeout_occurred = 0;
+  interrupt_occurred = 0;
+
+  sigemptyset(&alarm_action.sa_mask);
+  alarm_action.sa_handler = handler;
+  alarm_action.sa_flags = 0;
+  if (sigaction(SIGALRM, &alarm_action, &old_alarm_action) < 0) {
+    return -3;
+  }
+
+  sigemptyset(&int_action.sa_mask);
+  int_action.sa_handler = handler;
+  int_action.sa_flags = 0;
+  if (sigaction(SIGINT, &int_action, &old_int_action) < 0) {
+    sigaction(SIGALRM, &old_alarm_action, NULL);
+    return -3;
+  }
+
+  clearerr(stdin);
+  alarm(seconds);
+  c = getchar();
+  alarm(0);
+
+  sigaction(SIGALRM, &old_alarm_action, NULL);
+  sigaction(SIGINT, &old_int_action, NULL);
+
+  if (c != EOF) {
+    return c;
+  }
+  if (timeout_occurred) {
+    return -2;
+  }
+  if (interrupt_occurred) {
+    return -3;
+  }
+  if (feof(stdin)) {
+    return -1;
+  }
+  return -3;
+}
+
+int main(int argc, char *argv[]) {
+  int result;
+  time_t now;
+
+  if (argc != 2) {
+    fprintf(stderr, "usage: %s seconds\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  now = time(NULL);
+  printf("before: %s", ctime(&now));
+  result = mygetchar((unsigned int)atoi(argv[1]));
+  now = time(NULL);
+  printf("after: %s", ctime(&now));
+
+  if (result >= 0 && isprint(result)) {
+    printf("return: %d (%c)\n", result, result);
+  } else {
+    printf("return: %d\n", result);
+  }
+
+  return EXIT_SUCCESS;
+}
+
+4.2 コンパイルと実行結果
+
+以下のようにコンパイルした。
+
+$ gcc -Wall -Wextra -std=c11 2026-spring/sys_pro/506.c -o /tmp/506
+
+通常の文字入力として A を与えた結果は，以下の通りである。
+
+$ printf 'A\n' | /tmp/506 5
+before: Sun Jun 28 15:48:54 2026
+after: Sun Jun 28 15:48:54 2026
+return: 65 (A)
+
+EOF を与えた結果は，以下の通りである。
+
+$ printf '' | /tmp/506 5
+before: Sun Jun 28 15:48:54 2026
+after: Sun Jun 28 15:48:54 2026
+return: -1
+
+入力がないまま1秒待たせた結果は，以下の通りである。
+
+$ bash -c '(sleep 5) | /tmp/506 1'
+before: Sun Jun 28 15:48:54 2026
+after: Sun Jun 28 15:48:55 2026
+return: -2
+
+SIGINT を送った結果は，以下の通りである。
+
+$ bash -c '(sleep 5) | /tmp/506 10 & pid=$!; sleep 1; kill -INT $pid; wait $pid'
+before: Sun Jun 28 15:48:54 2026
+after: Sun Jun 28 15:48:55 2026
+return: -3
+
+以上により，通常の文字入力，EOF，タイムアウト，
+SIGINT による中断の4通りについて，指定された返り値が
+得られることを確認した。

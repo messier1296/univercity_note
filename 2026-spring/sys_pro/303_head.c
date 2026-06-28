@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
-  if (fs.st_size == 0) {
+  if (line_count == 0 || fs.st_size == 0) {
     close(fd);
     return 0;
   }

@@ -10,7 +10,7 @@
 int main(void) {
   char buf[N];
   int fps, fpd;
-  int count;
+  ssize_t count;
 
   fps = open("src", O_RDONLY);
   if (fps < 0) {
@@ -26,11 +26,18 @@ int main(void) {
   }
 
   while ((count = read(fps, buf, N)) > 0) {
-    if (write(fpd, buf, count) < 0) {
-      perror("write");
-      close(fpd);
-      close(fps);
-      exit(1);
+    ssize_t written = 0;
+
+    while (written < count) {
+      ssize_t result = write(fpd, buf + written,
+                             (size_t)(count - written));
+      if (result < 0) {
+        perror("write");
+        close(fpd);
+        close(fps);
+        exit(1);
+      }
+      written += result;
     }
   }
 

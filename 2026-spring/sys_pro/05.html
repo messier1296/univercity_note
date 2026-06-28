@@ -1,0 +1,1471 @@
+
+
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html;charset=utf-8">
+<title>システムプログラム（第5回）</title>
+<link rel="stylesheet" href="coins-syspro.css" type="text/css">
+</head>
+
+<body>
+
+<h1><a name="title">システムプログラム（第5回）</a></h1>
+
+情報学群情報科学類
+<br>
+<a href="http://www.cs.tsukuba.ac.jp/~oyama/">大山 恵弘</a>
+<br>
+<img width=256 src="picture/oyama-mail-address.jpg">
+
+<h4>目次</h4>
+
+<p>
+<ol>
+<li> <a href="#sec:filesystem-access">ファイルシステムへのアクセス</a></li>
+<li> <a href="#sec:signal-basic">シグナルの基礎知識</a></li>
+<li> <a href="#sec:using-signal">シグナルの利用</a></h2>
+<li> <a href="#sec:signal-advanced">シグナルの応用</a></h2>
+<li> <a href="#sec:interval-timer">インターバルタイマ</a></h2>
+</ol>
+</p>
+
+<h2><a name="sec:filesystem-access">ファイルシステムへのアクセス</a></h2>
+
+<p>
+<a href="../lecture3/">過去の回</a>ではファイルへのアクセスを取り上げた．そこでは主にファイルの読み書きのための方法について述べたが，
+ファイルに対して読み書き以外の操作を実行することも可能であり，ファイルシステムに対する操作（ディレクトリの読み出しなど）を実行することも可能である．
+ここではそのような操作を取り上げる．
+</p>
+
+<h3>ファイルに対する読み書き以外の操作</h3>
+
+<p>
+ファイルやファイルシステムに対してはファイル読み書き以外の操作を実行することもできる．そのような操作のためのシステムコールのうち主なものを以下に示す．
+インタフェースを見れば使い方は想像が付くと思うが，正確な使い方についてはマニュアルを参照のこと．
+</p>
+
+<pre class="program">
+int chmod(const char *pathname, mode_t mode); /* ファイルのパーミッションの変更 */
+int fchmod(int fd, mode_t mode); /* ファイルのパーミッションの変更 */
+int rename(const char *oldpath, const char *newpath); /* ファイルのリネーム */
+int unlink(const char *pathname); /* ファイルの削除 */
+int mkdir(const char *pathname, mode_t mode); /* ディレクトリの作成 */
+int rmdir(const char *pathname); /* ディレクトリの削除 */
+int symlink(const char *target, const char *linkpath); /* シンボリックリンクの作成 */
+ssize_t readlink(const char *pathname, char *buf, size_t bufsiz); /* シンボリックリンクの読み出し */
+</pre>
+
+<p>
+chmodとfchmodはどちらもパーミッション変更という同じ処理を実行するが，引数でパス名を指定するかファイルディスクリプタを指定するかという点で異なる．
+</p>
+
+<p>
+ファイルには，サイズ，ユーザ，グループ，パーミッション，最終更新時刻などの属性情報が関係付けられており，
+それらを読み出すためのシステムコールやライブラリ関数も提供されている．
+ファイルの属性情報を読み出すためのシステムコールとしては，statとfstatがある．
+</p>
+
+<pre class="program">
+int stat(const char *pathname, struct stat *statbuf);
+int fstat(int fd, struct stat *statbuf);
+</pre>
+
+<p>
+statでは第1引数に与えられたファイルパスのファイルの属性を読み出し，第2引数に与えられたポインタが指すメモリ領域に書き込む．
+fstatでは第1引数に与えられたファイルディスクリプタのファイルの属性を読み出し，第2引数に与えられたポインタが指すメモリ領域に書き込む．
+struct statは以下のように定義されている．
+</p>
+
+<pre class="program">
+struct stat {
+        dev_t     st_dev;         /* ID of device containing file */
+        ino_t     st_ino;         /* Inode number */
+        mode_t    st_mode;        /* File type and mode */
+        nlink_t   st_nlink;       /* Number of hard links */
+        uid_t     st_uid;         /* User ID of owner */
+        gid_t     st_gid;         /* Group ID of owner */
+        dev_t     st_rdev;        /* Device ID (if special file) */
+        off_t     st_size;        /* Total size, in bytes */
+        blksize_t st_blksize;     /* Block size for filesystem I/O */
+        blkcnt_t  st_blocks;      /* Number of 512B blocks allocated */
+        struct timespec st_atim;  /* Time of last access */
+        struct timespec st_mtim;  /* Time of last modification */
+        struct timespec st_ctim;  /* Time of last status change */
+};
+</pre>
+
+<p>
+以下のプログラムは引数に与えられたファイルパスのファイルのサイズ，パーミッション，最終更新時刻をstatシステムコールを用いて読み出し，それを標準出力に出力する．
+</p>
+
+<pre class="program">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/stat.h&gt;
+#include &lt;time.h&gt;
+
+int main(int argc, char *argv[])
+{
+        struct stat st;
+
+        if (argc != 2) {
+                fprintf(stderr, "Usage: %s &lt;pathname&gt;\n", argv[0]);
+                exit(EXIT_FAILURE);
+        }
+
+        if (stat(argv[1], &st) == -1) {
+                perror("stat");
+                exit(EXIT_FAILURE);
+        }
+
+        printf("Permission: %o\n", st.st_mode & 0777);
+        printf("File size: %d bytes\n", st.st_size);
+        printf("Last file modification: %s", ctime(&st.st_mtime));
+
+        return 0;   
+}
+</pre>
+
+<p>
+以下に実行例を示す．なお，実行例にあるように，システムコールと同名のstatコマンドを用いても，ファイルの属性情報を表示することができる．
+</p>
+
+<pre class="interaction">
+$ ls -l hello.txt
+-rw-r--r-- 1 oyama prof 13  6月 24 11:30 hello.txt
+$ cat hello.txt
+Hello world!
+$ ./a.out hello.txt
+Permission: 644
+File size: 13 bytes
+Last file modification: Tue Jun 24 11:30:01 2025
+$ stat ./hello.txt
+  File: ./hello.txt
+  Size: 13              Blocks: 2          IO Block: 1048576 通常ファイル
+Device: 34h/52d Inode: 16759228    Links: 1
+...
+Modify: 2025-06-24 11:30:01.251864968 +0900
+Change: 2025-06-24 11:30:01.251864968 +0900
+ Birth: -
+$
+</pre>
+
+
+<h3>ディレクトリの読み出し</h3>
+
+<p>
+ディレクトリの中身を見るには，システムコールを呼び出す方法とライブラリ関数を呼び出す方法がある．
+システムコールで実現する場合，openシステムコールでディレクトリをオープンした上で，getdentsシステムコールで中身を読み出す．
+ディレクトリの中身はディレクトリエントリと呼ばれるデータ構造の列である．各ディレクトリエントリが，そのディレクトリに含まれるファイルの情報を保持している．
+</p>
+
+<pre class="program">
+int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
+</pre>
+
+<p>
+引数のfdにはファイルディスクリプタ，dirpにはディレクトリエントリの列を読み込むバッファへのポインタ，countにはバッファサイズを与える．
+getdentsの実行が成功すると，バッファにディレクトリエントリの列が読み込まれる．
+ディレクトリに含まれる全部のディレクトリエントリが一度のgetdentsの呼び出しで読み込まれるとは限らないことに注意が必要である．
+全部読み込めなかった場合には，繰り返しgetdentsを呼び出せば，いずれは全部読み込むことができる．
+ディレクトリエントリは以下の構造体として定義されている．
+</p>
+
+<pre class="program">
+struct linux_dirent {
+        unsigned long  d_ino;     /* Inode number */
+        unsigned long  d_off;     /* Offset to next linux_dirent */
+        unsigned short d_reclen;  /* Length of this linux_dirent */
+        char           d_name[];  /* Filename (null-terminated) */
+                                  /* length is actually (d_reclen - 2 -
+                                     offsetof(struct linux_dirent, d_name)) */
+        /*
+        char           pad;       // Zero padding byte
+        char           d_type;    // File type (only since Linux
+                                  // 2.6.4); offset is (d_reclen - 1)
+        */
+};
+</pre>
+
+<p>
+d_nameにファイル名が入っているので，読み込んだ各ディレクトリエントリからファイル名を取り出せば，そのディレクトリに含まれるファイルのリストを得ることができる．
+たとえば以下のプログラムはカレントディレクトリにあるファイルを1行につき1個ずつ出力する．
+OSの細かい都合によりgetdentsシステムコールを直接呼び出せないため，syscallシステムコールを用いている．
+</p>
+
+<pre class="program">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;dirent.h&gt;
+#include &lt;sys/syscall.h&gt;
+
+struct linux_dirent {
+        long           d_ino;
+        off_t          d_off;
+        unsigned short d_reclen;
+        char           d_name[];
+};
+
+#define BUFSIZE 1024
+
+int main(void)
+{
+        int fd, nread;
+        char buf[BUFSIZE];
+        struct linux_dirent *direntp;
+        if ((fd = open(".", O_RDONLY)) &lt; 0) {
+                perror("open");
+                exit(EXIT_FAILURE);
+        }
+        while (1) {
+                /* ディレクトリエントリの読み出し（複数エントリを一気に読む可能性あり） */
+                nread = syscall(SYS_getdents, fd, buf, BUFSIZE);
+                if (nread &gt; 0) {
+                        direntp = (struct linux_dirent *)buf;
+                        while (nread &gt; 0) { /* 複数エントリ処理のためにループを回る */
+                                printf("%s\n", direntp-&gt;d_name);
+                                nread -= direntp-&gt;d_reclen;
+                                /* ポインタを更新して次のエントリを指すようにする */
+                                direntp = (struct linux_dirent *)((char *)direntp + direntp-&gt;d_reclen);
+                        }
+                } else if (nread &lt; 0) { /* getdentsがエラーを返すとここに来る */
+                        perror("getdents");
+                        close(fd);
+                        exit(EXIT_FAILURE);
+                } else { /* 全エントリを読み終えるとここに来る */
+                        break;
+                }
+        }
+        return 0;
+}
+</pre>
+
+<p>
+実行結果は以下の通りである．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+.
+..
+a.out
+foo.c
+sample.c
+data1.txt
+...
+$
+</pre>
+
+<p>
+ライブラリ関数を用いてディレクトリの中身を呼び出す場合には，opendir, readdir, closedir関数を使うことになるだろう．
+それらはopen, getdents, closeシステムコールよりも高レイヤのインタフェースであるため，より使いやすいかもしれない．
+</p>
+
+<p>
+以下のプログラムは，上と同様の動作をopendir, readdir, closedir関数を用いて実現したものである．
+
+<pre class="program">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;dirent.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;sys/types.h&gt;
+
+extern int errno;
+
+int main(void)
+{
+        DIR *dirp;
+        struct dirent *direntp;
+        int org_errno, errno;
+        if ((dirp = opendir(".")) == NULL) {
+                perror("opendir");
+                exit(EXIT_FAILURE);
+        }
+        while (1) {
+                org_errno = errno = 12345;
+                direntp = readdir(dirp);
+                if (direntp == NULL) {
+                        if (errno == org_errno) {
+                                /* 全ディレクトリエントリを読み終えた */
+                                break;
+                        } else {
+                                /* ディレクトリエントリの読み出しエラー */
+                                perror("readdir");
+                                closedir(dirp);
+                                exit(EXIT_FAILURE);
+                        }
+                } else {
+                        /* ディレクトリエントリの読み出し成功 */
+                        printf("%s\n", direntp->d_name);
+                }
+        }
+        closedir(dirp);
+        return 0;
+}
+</pre>
+
+<p>
+まずopendir関数によってディレクトリをオープンし，DIR構造体へのポインタの型のデータを得る．
+次に，それを引数に与えてreaddirを繰り返し呼び出す．
+readdirは1回呼び出すごとに1ファイルの情報を，struct dirent構造体へのポインタを通じて返す．
+struct dirent構造体は以下のように定義されており，中にファイル名を示す文字列を含んでいる．
+</p>
+
+<pre class="program">
+struct dirent {
+        ino_t          d_ino;       /* Inode number */
+        off_t          d_off;       /* Not an offset; see below */
+        unsigned short d_reclen;    /* Length of this record */
+        unsigned char  d_type;      /* Type of file; not supported
+                                       by all filesystem types */
+        char           d_name[256]; /* Null-terminated filename */
+};
+</pre>
+
+<p>
+仕様によると，readdirがディレクトリエントリを読み出したか，エラーとなったか，全ディレクトリエントリを読み出し終えたかは，
+返り値とerrnoという変数を組み合わせて判定することになっているので，そのための処理でやや複雑なコードになっている．
+</p>
+
+<h3>ディレクトリ間の移動（カレントディレクトリの変更）</h3>
+
+<p>
+以下のシステムコールで，ディレクトリ間の移動（カレントディレクトリの変更）が実現できる．
+chmodとfchmodの場合と同様に，chdirとfchdirは引数でパス名を指定するかファイルディスクリプタを指定するかという点で異なる．
+</p>
+
+<pre class="program">
+int chdir(const char *path);
+int fchdir(int fd);
+</pre>
+
+<h2><a name="sec:signal-basic">シグナルの基礎知識</a></h2>
+
+<h3>概要</h3>
+
+<p>
+プロセスは，オペレーティングシステムがコンピュータ（プロセッサ）を抽象化し，使いやすくしたものである．
+コンピュータは入出力機器からのイベント通知を割り込みという仕組みで受け取る．
+プロセスには，割り込みに相当するイベント通知のメカニズム（ソフトウェア割り込み）として，シグナルが提供されている．
+</p>
+
+<h4>割り込み</h4>
+
+<p>
+コンピュータは，プロセッサとメモリに加え，キーボード，マウス，ディスプレイ，ディスク，ネットワークインタフェースなどの入出力機器（I/Oデバイス）からなる．
+以下の図は単純化したコンピュータの構成を示している．
+プロセッサ，メインメモリ，I/O デバイスはシステムバスに接続されており，システムバスを通してお互いにデータをやり取りしている．
+プロセッサは I/O デバイスに入出力要求を出す．
+I/O デバイスは入出力要求を処理して結果をプロセッサに送り，プロセッサはその結果を受け取る．
+</p>
+
+<pre class="figure">
+<img src="picture/computer-structure.jpg" width=512 alt="コンピュータの構成">
+</pre>
+
+
+<p>
+割り込み (interrupt) は，入出力機器からプロセッサへのイベント通知（例えば処理終了の通知）のために考え出されたものである．
+I/O デバイスがプロセッサに何らかのイベントを通知する際には，プロセッサに対し割り込み要求を出す．
+プロセッサは割り込み要求を受け付けると，現在実行中の処理を中断し，割り込みを処理するために予め設定されたプログラムを呼び出し，実行する．
+この割り込み処理のためのプログラムを，割り込みハンドラや割り込みサービスルーチン (ISR: Interrupt Service Routine) と呼ぶ．
+</p>
+
+<p>
+■ 割り込みは時間依存の処理を可能にする
+</p>
+
+<p>
+割り込みが考え出されてから，時間に依存した処理もできるようになった．
+時間を刻むタイマデバイスから一定周期で（例えば1秒ごとに）割り込みがかかるようにすれば，そのタイミングでプロセスの切り替えをしたり，ポーリングを行ったりすることができるようになる．
+割り込みにより，特定のプロセスや特定のデバイスにかかりきりになることなく，公平に有効にプロセッサを分配活用できるようになった．
+</p>
+
+<p>
+■ 関数呼び出しは同期処理，割り込みは非同期処理
+</p>
+
+<p>
+割り込み処理は本来のプログラムの処理の流れとは無関係に，非同期的 (asynchronous) に発生する．
+一方，関数呼び出しは同期的 (synchronous) であり，明示的に関数を呼び出し，呼び出された関数で処理が行われ，関数呼び出しから戻ってくる．
+下図は，関数呼び出しと割り込み処理の違いを図示したものである．
+</p>
+
+<pre class="figure">
+<img src="picture/sync-async.jpg" width=600 alt="同期処理と非同期処理">
+</pre>
+
+<p>
+ある関数における処理から別の関数（割り込み処理ハンドラもプログラムの中では関数として定義される）が呼び出されるという処理の流れだけを見ると，関数呼び出しも割り込み処理も違いはない．
+しかし，関数呼び出しの方には関数を呼び出す命令が入っているのに対し，割り込み処理の方では割り込まれたプログラムが割り込みハンドラを呼び出す命令は一切ない．
+いつどこで割り込まれるかわからないのが割り込みの特徴である．
+</p>
+
+<p>
+OS カーネルでの処理にいつでも割り込まれてしまうのでは，データの一貫性を保つことができないので，プロセッサには割り込みを禁止する命令が用意されている．
+</p>
+
+<h4>例外</h4>
+
+<p>
+割り込みとは別に，アクセスが許可されていない番地にアクセスしようとしたとか，0による除算をしようとしたとか，不正な命令（例えば特権が必要な命令）を実行しようとしたとかの理由で，プログラムの実行中にそのプログラムに原因が起因するエラーが起こることがある．
+このようなエラーのことを例外 (exception) と呼ぶ．
+例外が発生した場合，OS カーネルの例外ハンドラ（例外処理のためのプログラム）が起動され対処する．
+</p>
+
+<p>
+割り込みと例外が似ている点は，OS カーネルの割り込みハンドラまたは例外ハンドラが起動されるという点，そしてこれらのハンドラを呼び出す命令がプログラム中には含まれていないという点である．
+異なっているのは，割り込みハンドラが起動されるのはデバイスなどプログラム外部が要因であるのに対し，例外ハンドラが起動されるのはプログラムの実行が要因であるという点である．
+</p>
+
+<h4>シグナル</h4>
+
+<p>
+ハードウェアからの割り込みや例外は OS カーネルにより処理される．
+ハードウェアを直接操作できるのは OS カーネルだけであるので，通常のユーザプロセスがハードウェアからの割り込みを直接受けることはない．
+例外は，その要因となったプログラムが処理することが可能な場合もあるが，プログラムに共通する処理も多いため，通常 OS カーネルにより処理される．
+</p>
+
+<p>
+しかし，割り込みや例外の概念はユーザプロセスとして動作するプログラムにも便利である．
+ある一定時間ごとに割り込みを発生させることができれば，現在の処理を継続しながら別の処理（例えばプロンプトを点滅させたり，アニメーションを実行したり，割り込みをサポートしていないデバイスに対しポーリングを行ったりというようなこと）ができる．
+また，非同期的に命令を送りそれに応じた処理を行わせるためにも，割り込みの概念は使用できる．
+例外が起こった場合に，そのイベントに対するプログラム独自の対処をしたい場合もある．
+</p>
+
+<p>
+UNIXではプロセッサとメモリというコンピュータの基本的な部分はプロセスとして抽象化されているが，同じように割り込みおよび例外を抽象化したのがシグナル (signal) である．
+割り込みハンドラに相当するのがシグナルハンドラである．
+一般的に使用される割り込みや例外の種類に応じたシグナルが OS カーネルにより定義されている．
+プロセスはそれぞれのシグナルの種類に対しシグナルハンドラを OS カーネルに登録することができる．
+プロセスは，実行中のプログラムに起因する例外や，プロセス外部からのイベントをシグナルとして受け取る．
+シグナルが受け取られると，OS カーネルに登録したシグナルハンドラが起動される．
+</p>
+
+<p>
+プロセス外部からのイベントとしてよく使用されているのが，キーボードから Ctrl-C や Ctrl-Z によるプロセス実行の中止または中断である．
+これらのキーボードからの入力は，まず OS カーネルに含まれるデバイスを制御するデバイスドライバにより処理され，後にプロセスにシグナルとして通知される．
+</p>
+
+<h2><a name="sec:using-signal">シグナルの利用</a></h2>
+
+<h3>シグナルを用いたプログラミング</h3>
+
+<h4>シグナルの種類とデフォルトの動作</h4>
+
+シグナルの種類と，それらに割り当てられた番号と，それらを受け取ったときに実行されるデフォルトの動作は，以下のようにマニュアルに記述されている．
+
+<pre class="program">
+SIGNAL(7)                                                         Linux Programmer's Manual                                                        SIGNAL(7)
+
+NAME
+       signal - overview of signals
+
+DESCRIPTION
+       Linux supports both POSIX reliable signals (hereinafter "standard signals") and POSIX real-time signals.
+
+   Signal dispositions
+       Each signal has a current disposition, which determines how the process behaves when it is delivered the signal.
+
+       The entries in the "Action" column of the tables below specify the default disposition for each signal, as follows:
+
+       Term   Default action is to terminate the process.
+
+       Ign    Default action is to ignore the signal.
+
+       Core   Default action is to terminate the process and dump core (see core(5)).
+
+       Stop   Default action is to stop the process.
+
+       Cont   Default action is to continue the process if it is currently stopped.
+
+       A  process  can change the disposition of a signal using sigaction(2) or signal(2).  (The latter is less portable when establishing a signal handler;
+
+... 一部省略 ...
+
+   Standard signals
+       Linux supports the standard signals listed below.  Several signal numbers are architecture-dependent, as indicated in  the  "Value"  column.   (Where
+       three  values  are given, the first one is usually valid for alpha and sparc, the middle one for x86, arm, and most other architectures, and the last
+       one for mips.  (Values for parisc are not shown; see the Linux kernel source for signal numbering on that architecture.)  A dash (-) denotes  that  a
+       signal is absent on the corresponding architecture.
+
+       First the signals described in the original POSIX.1-1990 standard.
+
+       Signal     Value     Action   Comment
+       ──────────────────────────────────────────────────────────────────────
+       SIGHUP        1       Term    Hangup detected on controlling terminal
+                                     or death of controlling process
+       SIGINT        2       Term    Interrupt from keyboard
+       SIGQUIT       3       Core    Quit from keyboard
+       SIGILL        4       Core    Illegal Instruction
+       SIGABRT       6       Core    Abort signal from abort(3)
+       SIGFPE        8       Core    Floating-point exception
+       SIGKILL       9       Term    Kill signal
+       SIGSEGV      11       Core    Invalid memory reference
+       SIGPIPE      13       Term    Broken pipe: write to pipe with no
+                                     readers; see pipe(7)
+       SIGALRM      14       Term    Timer signal from alarm(2)
+       SIGTERM      15       Term    Termination signal
+       SIGUSR1   30,10,16    Term    User-defined signal 1
+       SIGUSR2   31,12,17    Term    User-defined signal 2
+       SIGCHLD   20,17,18    Ign     Child stopped or terminated
+       SIGCONT   19,18,25    Cont    Continue if stopped
+       SIGSTOP   17,19,23    Stop    Stop process
+       SIGTSTP   18,20,24    Stop    Stop typed at terminal
+       SIGTTIN   21,21,26    Stop    Terminal input for background process
+       SIGTTOU   22,22,27    Stop    Terminal output for background process
+
+       The signals SIGKILL and SIGSTOP cannot be caught, blocked, or ignored.
+
+       Next the signals not in the POSIX.1-1990 standard but described in SUSv2 and POSIX.1-2001.
+
+... 以下省略 ...
+</pre>
+
+上に記載されているように，SIGKILLとSIGSTOPは捕捉することも，送信を止めることも，無視することもできない．
+その結果，権限などの問題がない限り，SIGKILLを送信されたプロセスは必ず終了し，SIGSTOPを送信されたプロセスは必ず停止する．
+
+<h4>シグナルとキーとの関係</h4>
+
+シグナルの一部にはキーが関係付けられており，端末（ターミナル）でそのキーを押すと，そのキーに関係付けられたシグナルが送信される．
+有名なものとしては，Ctrl-Cキーを押すと，動作中のプログラムにSIGINT（2番）シグナルが送信される．その結果，多くの場合にそのプログラムは強制終了する．
+シグナルとキーとの関係は，stty -aというコマンドを実行すると表示できる．
+
+<pre class="interaction">
+$ stty -a
+...
+intr = ^C; quit = ^\; erase = ^?; kill = ^U; eof = ^D; eol = &lt;undef&gt;; eol2 = &lt;undef&gt;; swtch = &lt;undef&gt;; start = ^Q; stop = ^S; susp = ^Z; rprnt = ^R; werase = ^W; lnext = ^V;
+discard = ^O; min = 1; time = 0;
+...
+$
+</pre>
+^という記号は一般にCtrlキーを意味することが多い．
+intr = ^Cの部分が，Ctrl-CキーでSIGINT（2番）シグナルが送信されることを示している．同様に，Ctrl-\でSIGQUITシグナルが，Ctrl-ZでSIGTSTPシグナルが送信される．シグナルの種類を表す文字列が上記のマニュアルの表と若干異なるのがわかりにくいかもしれない．さらにわかりにくいことに，sttyコマンドの結果にはシグナル送信を引き起こすキーも，単に特殊なデータを送るためのキーについての情報が混在して記載されている．たとえば上記のsttyの結果はCtrl-DでEOF (End-Of-File) データ（シグナルではない）が送られること，Ctrl-Sで出力を止めること，Ctrl-Qで止めた出力を再開することを示している．
+
+<h4>signalシステムコール</h4>
+
+<p>
+signal システムコールは，シグナルをサポートするために最初に作られたシステムコールである．
+後述するが，このシステムコールは古いインタフェースを提供しているため，もはや使用すべきではない．
+しかし，signal システムコールは単純で理解しやすく他のインタフェースを理解する基礎になるとともに，
+依然として広く用いられているため，最初に説明する．
+</p>
+
+<pre class="program">
+
+typedef void (*sighandler_t)(int);
+sighandler_t signal(int signum, sighandler_t handler);
+
+</pre>
+
+<p>
+シグナルハンドラを変更するシグナルの番号と新しいシグナルハンドラを引数に指定してsignalを呼び出すと，その番号のシグナルに新しいシグナルハンドラが関係づけられる．
+返り値として古いシグナルハンドラが返される．
+signal システムコールの第2引数と返り値の型は sighandler_t であり，これは int 型を引数に受け取って値を返さない（つまり void型の）関数へのポインタ（関数のアドレス）の型である．
+すなわち，シグナルハンドラは以下のように宣言される関数であり，このような型の関数へのポインタが，signal システムコールの引数や返り値になる．
+シグナルハンドラの引数は，送られてきたシグナルの番号である．
+</p>
+
+<pre class="program">
+/* 様々なシグナルハンドラの宣言の例 */
+void signal_handler1(int);
+void signal_handler2(int);
+void signal_handler3(int);
+void sighandA(int);
+void sighandB(int);
+void sighandler_segv(int);
+</pre>
+
+<p>
+シグナルハンドラの値として，関数へのポインタではなく以下の値を使用することもできる．
+
+<ul>
+<li> SIG_IGN　シグナルの無視
+<li> SIG_DFL　デフォルトの動作
+</ul>
+
+たとえば
+<pre class="program">
+signal(SIGQUIT, SIG_IGN);
+signal(SIGFPE, SIG_DFL);
+</pre>
+を実行すると，SIGQUITシグナルを無視するようになり，SIGFPEシグナル受信時の動作をデフォルトのものに戻す．
+</p>
+
+<p>
+シグナルと共に使われるシステムコールに pause がある．
+pause を呼び出したプロセスはシグナルを受け取るまで実行を停止する．
+シグナルを受け取ると，シグナルハンドラの実行後に pause からリターンする．
+</p>
+
+<pre class="program">
+
+int pause(void);
+
+</pre>
+
+<p>
+以下は signal と pause を使ったプログラム例である．
+
+<ul>
+<li> 8-21行目：シグナルハンドラの定義．3回起動すると exit を呼ぶ．
+<li> 25行目：SIGINT に対するシグナルハンドラとして sigint_handler を設定
+<li> 31行目：シグナルを受け取るまで pause で停止
+</ul>
+
+つまり，Ctrl-C を入力するたびに sigint_handler が起動し，3回入力するとプログラムが終了する．
+</p>
+
+<a href="resource/signal.c">signal.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;unistd.h&gt;
+     4  #include &lt;signal.h&gt;
+     5
+     6  volatile sig_atomic_t sigint_count = 3;
+     7
+     8  void sigint_handler(int signum)
+     9  {
+    10          printf("sigint_handler: signum(%d), sigint_count(%d)\n",
+    11                 signum, sigint_count);
+    12
+    13          if (--sigint_count &lt;= 0) {
+    14                  printf("sigint_handler: exiting ...\n");
+    15                  exit(1);
+    16          }
+    17
+    18  #if 0   /* For the original System V signal */
+    19          signal(SIGINT, &sigint_handler);
+    20  #endif
+    21  }
+    22
+    23  int main(void)
+    24  {
+    25          signal(SIGINT, &sigint_handler);
+    26
+    27          for (;;) {
+    28                  printf("main: sigint_count(%d), calling pause ...\n",
+    29                         sigint_count);
+    30
+    31                  pause();
+    32
+    33                  printf("main: returned from pause. sigint_count(%d)\n",
+    34                         sigint_count);
+    35          }
+    36
+    37          return 0;
+    38  }
+</pre>
+
+<p>
+6行目の volatile sig_atomic_t の volatile や sig_atomic_t という単語は見慣れないかもしれないが，その説明は後述する．
+とりあえずは volatile は無視し，sig_atomic_t は int に読み替えておけばよい．
+</p>
+
+<p>
+コンパイル，実行すると以下のようになる．
+<!-- Ctrl-C は表示されない．-->
+Ctrl-C は ^C として表示される．
+送られてきたシグナルの番号がシグナルハンドラ sigint_handler の引数になるため，SIGINT の番号である2が sigint_handler の引数として渡されているのがわかる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+main: sigint_count(3), calling pause ...
+<img src="picture/Ctrl-C.png" alt="[C-C]">^Csigint_handler: signum(2), sigint_count(3)
+main: returned from pause. sigint_count(2)
+main: sigint_count(2), calling pause ...
+<img src="picture/Ctrl-C.png" alt="[C-C]">^Csigint_handler: signum(2), sigint_count(2)
+main: returned from pause. sigint_count(1)
+main: sigint_count(1), calling pause ...
+<img src="picture/Ctrl-C.png" alt="[C-C]">^Csigint_handler: signum(2), sigint_count(1)
+sigint_handler: exiting ...
+$
+</pre>
+
+<h4>signal の仕様に関する微妙な問題</h4>
+
+<p>
+signal システムコールの最初の（しかしながら System V 系の UNIX まで継承された）仕様は，多くの問題を持っていた．
+
+<ol>
+<li> システムコールを呼び出して停止している時の動作：
+
+<p>
+例えば read システムコールを呼び出し，入力待ちの状態で停止している間にシグナルが通知された場合，そのシグナルに対応するシグナルハンドラが起動される．
+この場合，その read システムコールはキャンセルされ EINTR というエラーが返される．
+</p>
+</li>
+
+<li> シグナルハンドラのマスクとリセット：
+
+<p>
+あるシグナルに対応したシグナルハンドラを実行中に，また同じシグナルが通知された場合，同じシグナルハンドラを起動すると，データの一貫性などに問題が生じることがある．
+そのため，シグナルハンドラは一度呼び出されるとデフォルトの動作にリセットされる．
+デフォルトではないシグナルハンドラを実行させるためには，シグナルハンドラが起動されるたびに signal システムコールでシグナルハンドラを設定し直す必要がある（上記のプログラムの18-20行目）．
+</p>
+
+<p>
+しかし，この方法ではデフォルトの動作がプロセスの終了であった場合，シグナルハンドラを実行中に同じシグナルを受けたらプロセスが終了してしまうことになる．
+そこで，シグナルハンドラの実行中にそのシグナルを通知されたくない場合には，シグナルハンドラの先頭で，そのシグナルを無視する（SIG_IGN をシグナルハンドラとして設定する）ように設定する方法が考えられる．しかし，この方法にも，
+</p>
+
+<ul>
+<li> シグナルハンドラが起動されてから SIG_IGN が設定されるまでにわずかながら隙間がある</li>
+<li> 通知されたシグナルが無視されるため，そのシグナルを待つつもりで pause を呼んだプロセスは永遠に停止してしまう</li>
+</ul>
+
+<p>
+という問題がある．
+</p>
+
+</ol>
+</p>
+
+<p>
+System V とは別の系列の UNIX に BSD (Berkeley Software Distribution) がある．
+BSD UNIX では上記のような問題に対し signal の動作を変えることで対応しようとした．
+
+<ol>
+<li> システムコールを呼び出して停止している時の動作：
+
+<p>
+システムコールはキャンセルされない．
+シグナルハンドラ実行後に，システムコールの実行は継続される（停止状態に戻る）．
+</p>
+
+<li>シグナルハンドラのマスクとリセット：
+
+<p>
+シグナルハンドラの実行中に同じシグナルが通知されたら，そのシグナルは保留される．
+現在実行中のシグナルハンドラ処理の終了を待ち，終了後にもう一度シグナルハンドラを起動する．
+シグナルハンドラに関する設定はリセットされない．
+</p>
+
+</ol>
+
+<p>
+BSD UNIX の変更はうまく機能するものであったが，System V UNIX の古い signal と同じ API を用いたため，混乱の原因となった．
+macOS は BSD UNIX ベースであるため，この signal の API を提供している．
+そのため上記のプログラムの19行目は不要である．
+Linux カーネルが提供する signal システムコールは System V の API を持っている．
+しかし，glibc 2 以降では signal ライブラリ関数は signal システムコールを呼び出さず，
+代わりに BSD UNIX と同じ動作をするようなフラグを与えて sigaction システムコール（後述）を呼び出している．
+これについては signal(2)，bsd_signal(3)，sysv_signal(3) などのマニュアルで説明されている．
+結局，Linux でも macOS と同じく，上記のプログラムの19行目は不要であり，実際，#if ... #end でコメントアウトされている．
+</p>
+
+<h4>sigaction システムコール</h4>
+
+<p>
+signal システムコールの混乱状態を解決するために，POSIX では sigaction という新しいシステムコールを導入した．
+sigaction で導入されたシグナルは，旧来のメカニズムのシグナルと区別するために POSIX シグナルと呼ばれることがある．
+POSIX 準拠のシステムであれば sigaction を使用すべきであり，signal はもはや使用すべきではない．
+</p>
+
+<pre class="program">
+
+int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+
+</pre>
+
+<p>
+sigaction システムコールは，第1引数にはシグナル番号，第2引数には設定するシグナルの動作を与えて呼び出す．sigaction システムコールは返り値としてエラーコードを返し，第3引数に与えられたアドレスにシグナルの古い設定を書き込んで返す．
+</p>
+
+<p>
+シグナルの動作は以下の struct sigaction を用いて設定する．
+</p>
+
+<pre class="program">
+struct sigaction {
+    void     (*sa_handler)(int);
+    void     (*sa_sigaction)(int, siginfo_t *, void *);
+    sigset_t   sa_mask;
+    int        sa_flags;
+    void     (*sa_restorer)(void);
+};
+</pre>
+
+<p>
+<ul>
+<li> sa_handler　シグナルハンドラ
+<li> sa_sigaction　より詳しいシグナル情報を引数に受け取ることのできるシグナルハンドラ
+<li> sa_mask　シグナルハンドラ起動時に，そのシグナルハンドラに対応するシグナルの他にマスクしたい（保留したい）シグナル
+<li> sa_flags　動作の詳細を設定するための様々なフラグ．sa_flags に SA_SIGINFO が与えられていない場合にはシグナルハンドラとして sa_handler が使用され，与えられている場合にはシグナルハンドラとして sa_sigaction が使用される．
+</ul>
+</p>
+
+<p>
+古い signal のプログラムを，sigaction で sa_handler を使うように変更すると以下のようなプログラムになる．
+基本的には全く同じであるが，若干異なっている．
+
+<ul>
+<li> 24行目：スタック上に取られるローカル変数の初期値は不定であるため，struct sigaction 型の変数 sa_sigint をゼロクリア
+<li> 25行目：シグナルハンドラは sigint_handler
+<li> 26行目：sa_flags に SA_RESTART を設定し，シグナルにより中断されたシステムコールの処理は再開するように設定
+<li> 28行目：sigaction によりシグナルを設定
+</ul>
+</p>
+
+<a name="sigaction1.c">
+<a href="resource/sigaction1.c">sigaction1.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;unistd.h&gt;
+     4  #include &lt;signal.h&gt;
+     5  #include &lt;string.h&gt;
+     6
+     7  volatile sig_atomic_t sigint_count = 3;
+     8
+     9  void sigint_handler(int signum)
+    10  {
+    11          printf("sigint_handler: signum(%d), sigint_count(%d)\n",
+    12                 signum, sigint_count);
+    13
+    14          if (--sigint_count &lt;= 0) {
+    15                  printf("sigint_handler: exiting ...\n");
+    16                  exit(1);
+    17          }
+    18  }
+    19
+    20  int main(void)
+    21  {
+    22          struct sigaction sa_sigint;
+    23
+    24          memset(&amp;sa_sigint, 0, sizeof(sa_sigint));
+    25          sa_sigint.sa_handler = sigint_handler;
+    26          sa_sigint.sa_flags = SA_RESTART;
+    27
+    28          if (sigaction(SIGINT, &amp;sa_sigint, NULL) &lt; 0) {
+    29                  perror("sigaction");
+    30                  exit(1);
+    31          }
+    32
+    33          for (;;) {
+    34                  printf("main: sigint_count(%d), calling pause ...\n",
+    35                         sigint_count);
+    36
+    37                  pause();
+    38
+    39                  printf("main: returned from pause. sigint_count(%d)\n",
+    40                         sigint_count);
+    41          }
+    42
+    43          return 0;
+    44  }
+</pre>
+
+<p>
+上記のプログラムの実行結果は，古い signal を用いた場合と同一であるので，省略．
+</p>
+
+<p>
+同じプログラムを，sigaction で sa_sigaction を使うように変更したプログラムは以下のようになる．
+</p>
+
+<a name="sigaction2.c">
+<a href="resource/sigaction2.c">sigaction2.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;unistd.h&gt;
+     4  #include &lt;signal.h&gt;
+     5  #include &lt;string.h&gt;
+     6
+     7  volatile sig_atomic_t sigint_count = 3;
+     8
+     9  void sigint_action(int signum, siginfo_t *info, void *ctx)
+    10  {
+    11          printf("sigint_handler(%d): sigint_count(%d) signum(%d) code(0x%x)\n",
+    12                 signum, sigint_count, info-&gt;si_signo, info-&gt;si_code);
+    13
+    14          if (--sigint_count &lt;= 0) {
+    15                  printf("sigint_handler: exiting ...\n");
+    16                  exit(1);
+    17          }
+    18  }
+    19
+    20  int main(void)
+    21  {
+    22          struct sigaction sa_sigint;
+    23
+    24          memset(&amp;sa_sigint, 0, sizeof(sa_sigint));
+    25          sa_sigint.sa_sigaction = sigint_action;
+    26          sa_sigint.sa_flags = SA_RESTART | SA_SIGINFO;
+    27
+    28          if (sigaction(SIGINT, &amp;sa_sigint, NULL) &lt; 0) {
+    29                  perror("sigaction");
+    30                  exit(1);
+    31          }
+    32
+    33          while (1) {
+    34                  printf("main: sigint_count(%d), calling pause ...\n",
+    35                         sigint_count);
+    36
+    37                  pause();
+    38
+    39                  printf("main: returned from pause. sigint_count(%d)\n",
+    40                         sigint_count);
+    41          }
+    42
+    43          return 0;
+    44  }
+</pre>
+
+<p>
+コンパイル，実行すると以下のようになる．
+<!-- Ctrl-C は表示されない．-->
+Ctrl-C は ^C として表示される．
+通知されたシグナルについて，より多くの情報を引数として受け取れる．その詳細については sigaction のマニュアルを参照．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+main: sigint_count(3), calling pause ...
+<img src="picture/Ctrl-C.png" alt="[C-C]">^Csigint_handler(2): sigint_count(3) signum(2) code(0x80)
+main: returned from pause. sigint_count(2)
+main: sigint_count(2), calling pause ...
+<img src="picture/Ctrl-C.png" alt="[C-C]">^Csigint_handler(2): sigint_count(2) signum(2) code(0x80)
+main: returned from pause. sigint_count(1)
+main: sigint_count(1), calling pause ...
+<img src="picture/Ctrl-C.png" alt="[C-C]">^Csigint_handler(2): sigint_count(1) signum(2) code(0x80)
+sigint_handler: exiting ...
+$
+</pre>
+
+<p>
+上記の問題点における POSIX シグナルのデフォルトの動作は次のようになっている．
+
+<ol>
+<li> システムコールを呼び出して停止している時の動作：
+
+<p>
+この点については古い signal と同じである．システムコールの実行はキャンセルされ，そのシステムコールは EINTR というエラーを返す．
+</p>
+
+<li> シグナルハンドラのマスクとリセット：
+
+<p>
+この点については BSD UNIX と同じである．
+シグナルハンドラの実行中に同じシグナルが通知されたら，そのシグナルは保留される．現在実行中のシグナルハンドラ処理の終了を待ち，終了後にもう一度シグナルハンドラを起動する．
+また，シグナルハンドラはリセットされない．
+</p>
+
+</ol>
+
+どちらの点についても，設定により古い signal または BSD UNIX の動作をさせることができるようになっている．
+</p>
+
+<p>
+システムコールやライブラリ関数の実行がシグナルハンドラに割り込まれた場合，シグナルハンドラからのリターン後にそのシステムコールの実行が再開されるかリターンするかは，OSごとに厳密に仕様で定められている．その際に sigaction の引数の SA_RESTART フラグが及ぼす作用も，その仕様で定められている．また，再開かリターンかの挙動は，実行しているシステムコールやライブラリ関数の種類に依存している．仕様はかなり複雑になっている．このあたりの動きが重要になるプログラムの開発では，ぜひ signal(7) のマニュアルの該当部分（特に "Interruption of system calls and library functions by signal handlers" の部分）を熟読してほしい．
+</p>
+
+<p>
+なお通常，getchar() ライブラリ関数は内部で最終的には標準入力（端末）に対して read システムコールを実行する．
+よって，割り込まれた後の挙動も，端末に対する read システムコールのそれとなる．
+上記のマニュアルの部分では，「遅い」デバイスに対する read システムコールは，SA_RESTART フラグが与えられている場合には，再実行されると記述されている．
+さらに，その部分では，pause() システムコールは割り込まれたら SA_RESTART フラグがあってもなくても必ずリターンする（再開されない）と記述されている．
+</p>
+
+<h2><a name="sec:signal-advanced">シグナルの応用</a></h2>
+
+<p>
+シグナルハンドラにSIG_IGNを設定することにより，受け取りたくないシグナルを無視することができる．
+</p>
+
+<a href="resource/sigaction3.c">sigaction3.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;unistd.h&gt;
+     4  #include &lt;signal.h&gt;
+     5  #include &lt;string.h&gt;
+     6
+     7  volatile sig_atomic_t sigint_count = 3;
+     8
+     9  int main(void)
+    10  {
+    11          struct sigaction sa_ignore;
+    12
+    13          memset(&amp;sa_ignore, 0, sizeof(sa_ignore));
+    14          sa_ignore.sa_handler = SIG_IGN;
+    15
+    16          if (sigaction(SIGINT, &amp;sa_ignore, NULL) &lt; 0) {
+    17                  perror("sigaction");
+    18                  exit(1);
+    19          }
+    20
+    21          while (1) {
+    22                  printf("main: sigint_count(%d), calling pause ...\n",
+    23                         sigint_count);
+    24
+    25                  pause();
+    26
+    27                  printf("main: returned from pause. sigint_count(%d)\n",
+    28                         sigint_count);
+    29          }
+    30
+    31          return 0;
+    32  }
+</pre>
+
+<p>
+コンパイル，実行すると以下のようになる．Ctrl-C は ^C，Ctrl-Z は ^Z として表示される．
+Ctrl-C ではプロセスを終了させることができないため，Ctrl-Z によってまず停止させた上で，kill コマンドでプロセスを終了している．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+main: sigint_count(3), calling pause ...
+<img src="picture/Ctrl-C.png" alt="[C-C]">^C<img src="picture/Ctrl-C.png" alt="[C-C]">^C<img src="picture/Ctrl-C.png" alt="[C-C]">^C<img src="picture/Ctrl-Z.png" alt="[C-z]">^Z
+[1]+  停止                  ./a.out
+$ jobs
+[1]+  停止                  ./a.out
+$ kill -KILL %1
+
+[1]+  停止                  ./a.out
+$
+[1]+  強制終了            ./a.out
+$ jobs
+$ 
+</pre>
+
+<p>
+実装上は，ヘッダファイルで以下のように，デフォルトの動作を表す SIG_DFL の値は0，無視する動作を表す SIG_IGN の値は1と定義されている．
+sigaction は第3引数で指定された構造体にシグナルの古い設定を書き込むが，古い設定が無視やデフォルトであった場合は，これらの値がそこに書き込まれることになる．
+</p>
+
+<pre class="program">
+
+#define SIG_DFL         (void (*)(int))0
+#define SIG_IGN         (void (*)(int))1
+
+</pre>
+
+<h4>kill</h4>
+
+<p>
+プロセスへシグナルを送るためには kill システムコールを使用する．
+引数に送り先のプロセス ID と送るシグナルを指定する．
+</p>
+
+<pre class="program">
+
+int kill(pid_t pid, int sig);
+
+</pre>
+
+<p>
+以下は，コマンドライン引数にプロセス ID を受け取り，そのプロセスに対し SIGINT を送るプログラムである．
+通常は，SIGINT を受け取ったプロセスは終了することになる．
+</p>
+
+<a name="kill.c">
+<a href="resource/kill.c">kill.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;signal.h&gt;
+     4
+     5  int main(int argc, char *argv[])
+     6  {
+     7          pid_t pid;
+     8
+     9          if (argc != 2) {
+    10                  fprintf(stderr, "Usage: %s pid\n", argv[0]);
+    11                  exit(1);
+    12          }
+    13
+    14          pid = atoi(argv[1]);
+    15
+    16          if (pid &lt;= 0) {
+    17                  fprintf(stderr, "Invalid pid: %d\n", pid);
+    18                  exit(1);
+    19          }
+    20
+    21          if (kill(pid, SIGINT) &lt; 0) {
+    22                  perror("kill");
+    23                  exit(1);
+    24          }
+    25
+    26          return 0;
+    27  }
+</pre>
+
+<p>
+実行例を以下に示す．3600秒眠る sleep コマンドを実行するプロセスを生成し，そのプロセスを SIGINT シグナルの送信によって強制終了している．
+</p>
+
+<pre class="interaction">
+$ sleep 3600 &
+[1] 3612032
+$ ps
+    PID TTY          TIME CMD
+3601187 pts/27   00:00:00 bash
+3612032 pts/27   00:00:00 sleep
+3612036 pts/27   00:00:00 ps
+$ ./a.out 3612032
+[1]+  割り込み            sleep 3600
+$ ps
+    PID TTY          TIME CMD
+3601187 pts/27   00:00:00 bash
+3612067 pts/27   00:00:00 ps
+$
+</pre>
+
+<h4><a name="note:async-signal-safe">シグナルハンドラ内での処理についての注意</a></h4>
+
+<p>
+Ctrl-C を3回入力すると終了する上記の <a href="#sigaction2.c">sigaction2.c</a> で，シグナルハンドラ内で値が変更される変数は，以下のように宣言されている．
+</p>
+
+<pre class="program">
+
+volatile sig_atomic_t sigint_count = 3;
+
+</pre>
+
+<p>
+sig_atomic_t は，割り込まれずに書き込みが可能な変数の型である．
+volatile は型修飾子と呼ばれるもので，型の前に付けて使用する．
+volatile を付けることによって，コンパイラによる最適化が抑止され，sigint_count はレジスタではなくメモリに割り当てられるとともに，それに対する読み書きも必ずメモリに対して行なわれるようになる．
+</p>
+
+<p>
+このような宣言が必要な理由は，シグナルハンドラの呼び出しが，関数呼び出しのようにプログラムの制御の流れに沿ったものではなく，プログラム外部のイベントに起因し非同期的に起こるものだからである．
+プログラムの制御の流れに沿っている場合，変数への読み書きはコンパイラの制御下にあるため，最適化により一時的にレジスタに置かれている変数の値が正しく参照される．
+しかし，シグナルハンドラは，本来のプログラムの制御の流れとは無関係に，プログラムの実行に割り込んで呼び出される．
+最適化により変数の値が一時的にレジスタに置かれているところにシグナルハンドラの呼び出しが起こった場合，シグナルハンドラはその最新の値にアクセスすることはできない．
+また，シグナルハンドラが変数の値を書き換えたとしても，割り込まれたプログラムはその変更に気がつかないこともあり得る．
+</p>
+
+<p>
+volatile と宣言された変数は必ずメモリに割り当てられるため，どういうタイミングでシグナルによる割り込みが起きても，必ず最新の値を参照することができる．
+また，sig_atomic_t は割り込まれずに書き込みが可能な変数の型を提供するため，変数の読み書きの途中で割り込まれることがない．
+例えば，値を変数の下位バイトには書き込んだが上位バイトにまだ書き込んでいない瞬間に割り込まれることがない．
+そのため，一貫性のある値を読み書きすることができる．
+</p>
+
+<p>
+シグナルハンドラは，本来のプログラムの制御の流れに割り込んで呼び出されるため，プログラムの処理に異常をもたらす場合もある．
+シグナルハンドラ内で呼び出すと異常をもたらすライブラリ関数やシステムコールは数多くあるため，シグナルハンドラ内で使用可能なライブラリ関数やシステムコールは制限されている．
+例えば，printf はシグナルハンドラ内で使用可能ではない（外部サイトの参考資料： <a href="https://qiita.com/rarul/items/090920b850acc4b7e910">シグナルハンドラにprintf()を書いてはいけない</a>）．
+write は使用可能なので，メッセージを出力する必要がある場合には write を用いる．
+シグナルハンドラ内で使用可能な関数のリストについてはシグナルに関するマニュアル（たとえばsignal-safety(7)）を参照のこと．
+</p>
+
+
+<h2><a name="sec:interval-timer">インターバルタイマ</a></h2>
+
+<p>
+ある一定時間ごとにシグナルを発生させ，現在の処理を継続しながら別の処理（例えばプロンプトを点滅させたり，アニメーションを実行したり，割り込みをサポートしていないデバイスに対しポーリングを行ったりというようなこと）がしたい場合にはインターバルタイマという機能が使える．
+インターバルタイマは setitimer システムコールを用いて設定できる．
+</p>
+
+<pre class="program">
+
+int setitimer(int which, const struct itimerval *new_value, struct itimerval *old_value);
+
+</pre>
+
+<p>
+インターバルタイマは第2引数で指定した時間が経つ（残り時間が0になる）とシグナルで通知する．
+時間経過の計測方法について，以下の中から1つを第1引数に与える．
+
+<ul>
+<li> ITIMER_REAL： 実際に経過した時間だけ減少し，残り時間が0になったら SIGALRM が通知される
+<li> ITIMER_VIRTUAL： プロセスがユーザプログラムを実行している時間だけ減少し，残り時間が0になったら SIGVTALRM が通知される
+<li> ITIMER_PROF： プロセスがカーネル内も含めてプログラムを実行している時間だけ減少し，残り時間が0になったら SIGPROF が通知される
+</ul>
+
+基本的にはITIMER_REALを与えればよいが，ユーザ時間やカーネル時間を意識した処理を実行するプログラムでは別の引数を与えたほうがよい場合もある．
+</p>
+
+<p>
+第2引数で時間を指定するために使用する型 struct itimerval とその中で使われている型 struct timeval の定義は以下のようになっている．
+</p>
+
+<pre class="program">
+struct itimerval {
+    struct timeval it_interval; /* Interval for periodic timer */
+    struct timeval it_value;    /* Time until next expiration */
+};
+
+struct timeval {
+    time_t      tv_sec;         /* seconds */
+    suseconds_t tv_usec;        /* microseconds */
+};
+</pre>
+
+<p>
+it_value に与えられた時間が経過すると，第1引数で指定されたシグナルが通知される．
+そして，it_interval の値が次の残り時間（it_value）として設定される．
+it_value が0に設定されたタイマは無効になる（時間計測およびシグナルの通知を停止する）．
+</p>
+
+<p>
+以下は，ITIMER_REAL を指定した setitimer によって作られるインターバルタイマにより，実際の時間で1秒ごとにシグナルを受け，10回シグナルを受け取ると終了するプログラムである．
+10回シグナルを受け取ったら it_value と it_interval に0を設定し，タイマを無効にしている（その後すぐにプログラムが終了するので，無効化する意義はないが）．
+</p>
+
+<a href="resource/itimer.c">itimer.c</a>
+<pre class="program">
+     1  #include &lt;stdio.h&gt;
+     2  #include &lt;stdlib.h&gt;
+     3  #include &lt;unistd.h&gt;
+     4  #include &lt;signal.h&gt;
+     5  #include &lt;string.h&gt;
+     6  #include &lt;time.h&gt;
+     7  #include &lt;sys/time.h&gt;
+     8
+     9  volatile sig_atomic_t alrm_count = 10;
+    10
+    11  void alrm(int signum)
+    12  {
+    13          alrm_count--;
+    14  }
+    15
+    16  int main(void)
+    17  {
+    18          struct sigaction sa_alarm;
+    19          struct itimerval itimer;
+    20
+    21          memset(&amp;sa_alarm, 0, sizeof(sa_alarm));
+    22          sa_alarm.sa_handler = alrm;
+    23          sa_alarm.sa_flags = SA_RESTART;
+    24
+    25          if (sigaction(SIGALRM, &amp;sa_alarm, NULL) &lt; 0) {
+    26                  perror("sigaction");
+    27                  exit(1);
+    28          }
+    29
+    30          itimer.it_value.tv_sec  = itimer.it_interval.tv_sec  = 1;
+    31          itimer.it_value.tv_usec = itimer.it_interval.tv_usec = 0;
+    32
+    33          if (setitimer(ITIMER_REAL, &amp;itimer, NULL) &lt; 0) {
+    34                  perror("setitimer");
+    35                  exit(1);
+    36          }
+    37
+    38          while (alrm_count) {
+    39                  pause();
+    40                  printf("%d: %d\n", alrm_count, time(NULL));
+    41          }
+    42
+    43          itimer.it_value.tv_sec  = itimer.it_interval.tv_sec  = 0;
+    44          itimer.it_value.tv_usec = itimer.it_interval.tv_usec = 0;
+    45
+    46          if (setitimer(ITIMER_REAL, &amp;itimer, NULL) &lt; 0) {
+    47                  perror("setitimer");
+    48                  exit(1);
+    49          }
+    50
+    51          return 0;
+    52  }
+</pre>
+
+<p>
+コンパイル，実行すると以下のようになる．time(NULL) によって取得される時刻が1秒ずつ増えていくことがわかる．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+9: 1686989789
+8: 1686989790
+7: 1686989791
+6: 1686989792
+5: 1686989793
+4: 1686989794
+3: 1686989795
+2: 1686989796
+1: 1686989797
+0: 1686989798
+$
+</pre>
+
+<p>
+2008年版の POSIX の仕様書に書かれた <a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/getitimer.html" target="_blank">getitimer, setitimer のマニュアル</a>によると，getitimer と setitimer は廃止予定であり，timer_gettime, timer_settime を使うことが推奨されているようである．
+とはいえ，この演習で使用している Linux サーバの環境では，getitimer, setitimer, timer_gettime, timer_settime のいずれも使える．
+</p>
+
+<a name="exam">
+<h2>練習問題</h2>
+
+<a name="exam501">
+<h3>練習問題(501)</h3>
+</a>
+
+<p>
+カレントディレクトリにあるファイルの情報を1行に1ファイルずつ出力するプログラムを作りなさい．各行の内容はファイル名，半角空白1つ，ファイルサイズとする．
+実行結果はたとえば以下のようになるだろう．
+</p>
+
+<pre class="interaction">
+$ ./a.out
+. 57
+.. 12
+a.out 21472
+foo.c 314
+sample.c 629
+data1.txt 54
+...
+（以下，ファイルの情報が続く）
+...
+$
+</pre>
+
+ls, stat, awk, sedなどのコマンドを呼び出して所定の動作を実現することは不可とする．ファイルやファイルシステムを扱うためのライブラリ関数やシステムコールを組み合わせて実現するものとする．
+
+
+<a name="exam502">
+<h3>練習問題(502)</h3>
+</a>
+
+<p>
+kill システムコールでシグナルを送るプログラム <a href="#kill.c">kill.c</a> と，シグナルを受け取るプログラム <a href="#sigaction1.c">sigaction1.c</a> を使用して，プロセスからプロセスへシグナルが送られるのを確かめなさい．
+</p>
+
+<p>
+ヒント： 端末ウィンドウを2つ開き，片方のウィンドウでシグナルを受け取るプログラムを動かし，もう片方のウィンドウでシグナルを送るプログラムを動かす．
+シグナルを受け取るプロセスのIDは ps コマンドで調べるか，シグナルを受け取るプログラムを変更して自分のプロセスIDを表示させるようにする．
+</p>
+
+<a name="exam503">
+<h3>練習問題(503)</h3>
+</a>
+
+<p>
+複数の異なるシグナルに対してシグナルハンドラを設定し，シグナルに応じたシグナルハンドラが起動されることを確かめなさい．
+</p>
+
+<p>
+ヒント： シグナルは様々な方法で発生させることができる．
+kill コマンドや kill システムコールを使えば，好きなシグナルを好きなプロセスに送信することができる．
+キー入力や GUI 操作でシグナルを発生させることもできる．
+例えば Ctrl-Z を入力すると SIGTSTP シグナルを発生させることができ，端末のウィンドウのサイズを変えると SIGWINCH シグナルを発生させることができる．
+</p>
+
+
+<a name="exam504">
+<h3>練習問題(504)</h3>
+</a>
+
+<p>
+OS はプロセスによる様々な不正な処理の実行に対してシグナルを送信する．
+たとえば，この演習で使用している Linux は，不正なメモリアクセスを行ったプロセスに SIGSEGV（segmentation violation, セグメンテーション違反）シグナルを送信し，
+ゼロによる整数除算を試みたプロセスに SIGFPE（floating point exception, 浮動小数点数例外）シグナルを送信する（注を参照）．
+以下のプログラムを作成しなさい．
+<ul>
+  <li>コマンドライン引数を1つ受け取る．</li>
+  <li>コマンドライン引数に0を与えると，ゼロによる整数除算を意図的に行う．
+    それにより実行されるシグナルハンドラ内で，ゼロ除算が行われたというメッセージを表示してプログラムを終了する．</li>
+  <li>コマンドライン引数に1を与えると，不正なメモリアクセスを意図的に行う．
+    それにより実行されるシグナルハンドラ内で，不正なメモリアクセスが行われたというメッセージ，および，アクセス先メモリアドレスを表示してプログラムを終了する．</li>
+  <li>コマンドライン引数に2を与えると，pause システムコールを呼び出して停止する．
+    ウィンドウサイズが変更されると実行される SIGWINCH シグナルのシグナルハンドラ内で，ウィンドウサイズが変更されたというメッセージを表示してプログラムを終了する．
+    <ul>
+      <li>動作確認の際には，pause による停止中に，このプログラムが動作しているターミナルのウィンドウサイズを変更する．</li>
+    </ul>
+</li>
+</ul>
+シグナル発生直前にアクセスした（シグナル発生の契機となった）メモリアドレスの情報は，シグナル発生時にOSがシグナルハンドラに渡すデータ構造である siginfo_t 型の構造体から取得できる．
+この演習の Linux サーバの環境では siginfo_t 型の構造体についての情報は sigaction のマニュアルに書かれている．
+<!--- しかし，macOS の環境では書かれていない．macOS の環境ではヘッダファイル sys/signal.h からその情報を得てほしい．
+Linux 用の sigaction のマニュアルを参照してもいいが，siginfo_t 構造体の定義が Linux と macOS で若干異なることに注意せよ．--->
+</p>
+
+<p>
+本来はシグナルハンドラの中で printf を呼び出してはいけないが，この問題に対する解答のプログラムでは呼び出してもよいものとする．
+もちろん，printf ではなく write などの呼び出してもよい関数を使うプログラムにするほうが望ましい．
+</p>
+
+<p>
+コマンドライン引数に受け取った文字列を整数に変換するには，たとえばライブラリ関数のatoiが使える．atoiは，引数に整数を表すような文字列を受け取ると，それを整数に変換して返す．
+</p>
+
+<p>
+注： 少なくともこの演習の計算機環境の Linux サーバでは整数のゼロ除算に対しても SIGFPE（浮動小数点数例外）シグナルが送信される．
+さらになんと，浮動小数点数のゼロ除算に対しては，浮動小数点数に関するシグナルは送信されない．
+</p>
+
+<a name="exam505">
+<h3>練習問題(505)</h3>
+</a>
+
+<p>
+sleep は実はライブラリ関数である．
+シグナルの機能を用いて，sleep 相当の機能を持つ関数 mysleep を作りなさい．
+</p>
+
+<p>
+mysleep は sleep と同じ返り値を返すようにし，さらに，それを確かめる実行例を含めるようにすること．
+現在時刻は time 関数により取得できる．
+使用が終わり不要になったシグナルの設定はキャンセルし，もとの設定に戻すこと．
+nanosleep システムコールは使用しないこと．
+細かい仕様が気になる人のために言っておくと，mysleep はリエントラント（再入可能）である必要はない．
+</p>
+
+<p>
+ヒント： 現在時刻は time 関数や gettimeofday 関数によって取得できる．
+Linux では clock_gettime 関数の利用が推奨されている．
+</p>
+
+<a name="exam506">
+<h3>練習問題(506)</h3>
+</a>
+
+<p>
+キーボードから1文字入力を読み込む関数getcharにタイムアウト機能を追加した関数 mygetchar を作りなさい．
+<ul>
+<li>タイムアウト時間はmygetcharへの引数で指定する．
+<li>返り値は，指定された時間内にキー入力があった場合にはその値，EOFが入力された場合には -1，指定された時間内にキー入力がなくタイムアウトが起きた場合には -2，それ以外の理由でリターンする場合（タイムアウト機能と関係ないシグナルを受け取った場合など）には -3 とする．
+</ul>
+実行例では，上記の仕様を満たしていることを，以下を表示することにより示しなさい．
+<ul>
+<li>mygetcharの返り値（キー入力値，-1，-2，-3の4通りすべて）
+<li>time関数により得た現在時刻を ctime 関数により変換して得た文字列
+</ul>
+-3 を返す機能を，あらゆる理由のリターンに対処できるように実装することは面倒である．よって，その機能はSIGINTシグナル（割り込みシグナル）を受け取った場合だけに対応できていればよく，実行例にもその場合のものだけを含めればよいとする．
+もちろん，あらゆる理由のリターンに対処できるように実装してもよい．
+</p>
+
+<p>
+細かい仕様が気になる人のために言っておくと，mygetcharはリエントラント（再入可能）である必要はない．
+</p>
+
+<p>
+ヒント： シグナルの設定に用いるフラグに注意しよう．
+<br>
+ヒント： Ctrl-Dによって，端末からの入力の終わりを意味するデータすなわちEOFを入力することができる．
+<br>
+ヒント： Ctrl-Cによって，フォアグラウンドのプロセスにSIGINTシグナルを送信することができる．
+<br>
+ヒント： getcharはファイルや端末からの入力の終わりの場合にも，シグナルなどにより文字の読み込みに失敗した場合にも，EOFを返す．
+どちらの場合によるEOFかを判定するためには，feof関数やferror関数を使う．
+<br>
+</p>
+
+<a name="exam507">
+<h3>練習問題(507)</h3>
+</a>
+
+<p>
+練習問題(407)と同じように，親プロセスと子プロセスが交互に実行することにより，交互に1文字出力するプログラムを，シグナルを用いて書きなさい．
+fork で作る子プロセスは1つだけとする．
+</p>
+
+<HR>
+<ADDRESS> <A HREF="https://www.cs.tsukuba.ac.jp/~oyama/">Yoshihiro Oyama</A> / &lt;oyama@cs.tsukuba.ac.jp&gt; </ADDRESS>
+
+</body>
+</html>
+

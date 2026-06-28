@@ -4,6 +4,17 @@
 練習問題番号：301, 303
 題名：read, write, mmap を用いたファイル処理
 
+再提出時の修正内容
+
+前回の提出から以下の点を修正した。
+練習問題(301)では，cmp コマンドのプロンプト，引数および
+終了状態を追記した。また，write が要求したバイト数より
+小さい値を返した場合にも，残りのデータを書き込むように
+プログラムを修正した。
+練習問題(303)では，303_tail.c の一部分だけでなくコード
+全体を掲載し，write の出力開始位置と出力サイズを明記した。
+また，表示行数が0の場合の処理を修正した。
+
 1. 動作確認環境
 
 動作確認は自分の PC 上の WSL2 環境で行った。
@@ -29,6 +40,9 @@ Linux 6.18.33.1-microsoft-standard-WSL2 である。
 
 read は指定したバッファサイズより小さい値を返すことが
 あるため，実際に read が返したバイト数だけ write する。
+また，write も要求したバイト数より小さい値を返すことが
+ある。その場合は，まだ書き込んでいない位置から write を
+繰り返し，read で読み込んだ全データを書き込む。
 
 301.c
 
@@ -44,7 +58,7 @@ read は指定したバッファサイズより小さい値を返すことが
 int main(void) {
   char buf[N];
   int fps, fpd;
-  int count;
+  ssize_t count;
 
   fps = open("src", O_RDONLY);
   if (fps < 0) {
@@ -60,11 +74,18 @@ int main(void) {
   }
 
   while ((count = read(fps, buf, N)) > 0) {
-    if (write(fpd, buf, count) < 0) {
-      perror("write");
-      close(fpd);
-      close(fps);
-      exit(1);
+    ssize_t written = 0;
+
+    while (written < count) {
+      ssize_t result = write(fpd, buf + written,
+                             (size_t)(count - written));
+      if (result < 0) {
+        perror("write");
+        close(fpd);
+        close(fps);
+        exit(1);
+      }
+      written += result;
     }
   }
 
@@ -83,16 +104,35 @@ int main(void) {
 
 2.2 コンパイルと実行結果
 
-以下のようにコンパイルした。
+以下のように，N が BUFSIZ，1048576，1 の実行ファイルを
+それぞれコンパイルした。
 
-$ gcc -Wall -Wextra -std=c11 /home/hayato/university/2026-spring/sys_pro/301.c 
+$ gcc -Wall -Wextra -std=c11 301.c -o /tmp/301
+$ gcc -Wall -Wextra -std=c11 -DN=1048576 301.c -o /tmp/301_large
+$ gcc -Wall -Wextra -std=c11 -DN=1 301.c -o /tmp/301_one
 
 コピー元ファイルとして，1 から 100000 までの数を
 1行に1つずつ書いたテキストファイルを用いた。
 このファイルの大きさは 588895 バイトであり，
 64KB より大きい。
 
-Nに1,BUFSIZ,1048576のいずれを入れても正しくコピーできていることをcmpコマンドで確認している
+各実行ファイルを実行した後，cmp の第1引数にコピー元の
+src，第2引数にコピー先の dst を指定した。cmp は2つの
+ファイルが同じ場合には何も出力しないため，終了状態も
+表示した。いずれも0であり，正しくコピーできた。
+
+$ /tmp/301
+$ cmp src dst
+$ echo $?
+0
+$ /tmp/301_large
+$ cmp src dst
+$ echo $?
+0
+$ /tmp/301_one
+$ cmp src dst
+$ echo $?
+0
 
 実行時間は time コマンドで以下のように計測した。
 
@@ -214,11 +254,69 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-303_tail.c は，ファイルを開く部分，mmap する部分，
-munmap する部分は 303_head.c と同じである。
-違う点は，ファイル末尾から先頭方向に改行文字を数え出力する部分である.
+以下に，mmap を用いて tail コマンドに似た処理を行う
+プログラム全体を示す。ファイル末尾から先頭方向に
+改行文字を数えて出力開始位置 p を決める。write の
+第2引数には p，第3引数には end - p を渡すことで，
+求めた位置からファイル末尾までを出力する。
 
- end = p0 + fs.st_size;
+303_tail.c
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static size_t map_length(size_t file_size) {
+  long page_size = sysconf(_SC_PAGE_SIZE);
+
+  if (page_size <= 0) {
+    perror("sysconf");
+    exit(1);
+  }
+  return ((file_size + (size_t)page_size - 1) / (size_t)page_size) *
+         (size_t)page_size;
+}
+
+int main(int argc, char *argv[]) {
+  int fd, err;
+  struct stat fs;
+  char *p, *p0, *end;
+  size_t maplen;
+  int line_count, cnt;
+
+  if (argc != 3) {
+    exit(1);
+  }
+  line_count = atoi(argv[2]);
+
+  fd = open(argv[1], O_RDONLY);
+  if (fd < 0) {
+    perror(argv[1]);
+    exit(-1);
+  }
+
+  if (fstat(fd, &fs) < 0) {
+    perror("fstat");
+    exit(-1);
+  }
+
+  if (line_count == 0 || fs.st_size == 0) {
+    close(fd);
+    return 0;
+  }
+
+  maplen = map_length((size_t)fs.st_size);
+
+  p = p0 = (char *)mmap(NULL, maplen, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (p == MAP_FAILED) {
+    perror("mmap");
+    exit(-1);
+  }
+
+  end = p0 + fs.st_size;
   p = end;
   cnt = 0;
 
@@ -235,13 +333,31 @@ munmap する部分は 303_head.c と同じである。
       }
     }
   }
+  if (cnt < line_count) {
+    p = p0;
+  }
+
+  if (write(STDOUT_FILENO, p, (size_t)(end - p)) < 0) {
+    perror("write");
+    exit(-1);
+  }
+
+  err = munmap(p0, maplen);
+  if (err) {
+    perror("munmap");
+    exit(-1);
+  }
+  close(fd);
+
+  return 0;
+}
  
 3.2 コンパイルと実行結果
 
 以下のようにコンパイルした。
 
-$ gcc -Wall -Wextra -std=c11 2026-spring/sys_pro/303_head.c 
-$ gcc -Wall -Wextra -std=c11 2026-spring/sys_pro/303_tail.c 
+$ gcc -Wall -Wextra -std=c11 303_head.c -o /tmp/303_head
+$ gcc -Wall -Wextra -std=c11 303_tail.c -o /tmp/303_tail
 
 動作確認用のファイルとして，5行のテキストを
 利用した。
