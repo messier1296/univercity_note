@@ -1,0 +1,2128 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+																						
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="content-type" CONTENT="text/html;charset=iso-2022-jp">
+<TITLE> システムプログラム（第7回）: ネットワーク・プログラミング／サーバ側(1)
+</TITLE>
+<STYLE TYPE="text/css"><!--
+
+@import url("../coins-syspro-2026.css");
+
+--></STYLE>
+</HEAD>
+
+<BODY>
+
+<H1>システムプログラム（第7回）: ネットワーク・プログラミング／サーバ側(1) </H1>
+<PRE>
+                                       筑波大学 システム情報系 情報工学域
+                                       <A HREF="https://www.cs.tsukuba.ac.jp/~yas/">新城 靖</A>
+                                       &lt;yas@cs.tsukuba.ac.jp&gt;
+</PRE>
+<P>
+このページは、次の URL にあります。<BR>
+<CODE>	<A HREF="https://www.coins.tsukuba.ac.jp/~syspro/2026/2026-07-15">https://www.coins.tsukuba.ac.jp/~syspro/2026/2026-07-15</A></CODE><BR>
+あるいは、次のページから手繰っていくこともできます。<BR>
+<CODE>	<A HREF="https://www.coins.tsukuba.ac.jp/~syspro/2026/">https://www.coins.tsukuba.ac.jp/~syspro/2026/</A></CODE><BR>
+<CODE>	<A HREF="http://www.coins.tsukuba.ac.jp/~yas/">http://www.coins.tsukuba.ac.jp/~yas/</A></CODE><BR>
+
+
+
+
+
+
+
+<H3 id="today">今日の重要な話</H3>
+
+<UL>
+<LI> TCP/IP サーバ側のプログラム
+<UL>
+<LI> tcp_acc_port() (socket()/listen())
+<LI> accept()
+<LI> (snprintf())
+</UL>
+</UL>
+
+<H3 id="supplement">補足</H3>
+
+<H4><A id="emacs-fill-paragraph">Emacs fill-paragraph,VSCode Rewrap</A></H4>
+
+システムプログラムのレポートは、1行を ASCII で70文字、漢字なら35文字程
+度で折り返されていることを期待している。
+
+</P><P>
+
+Emacs fill-paragraph (M-q, Esc q) を使うと、空行を区切りとして、パラグ
+ラフを折り返してくれる。region を指定することもできる。
+
+</P><P>
+
+Visual Studio Code なら、同じことを
+<A HREF="https://marketplace.visualstudio.com/items?itemName=stkb.rewrap">Rewrap</A>
+で可能。標準のキーは、Emacs に習って Alt+Q。
+
+</P><P>
+
+
+<H4><A id="strcat-strncpy">strcat()とstrncpy()</A></H4>
+
+strcat(), strncpy() を使わないで欲しい。
+代わりに、snprintf(), strlcpy() を使って欲しい。
+
+<A HREF="../2026-06-03/index.html#sec:strings-library">文字操作，文字列操作ライブラリ</A> 参照。
+</P><P>
+
+strcat() を使ったプログラム(やめて欲しいプログラム)。
+<PRE class="program">
+main() {
+	char buf[BUFFERSIZE];
+	char *s1 = "world!";
+	strcpy(buf&#44; "hello ");
+	strcat(buf&#44; s1);
+	printf("%s\n"&#44; buf);
+}
+</PRE>
+
+snprintf() を使ったプログラム。
+<PRE class="program">
+main() {
+	char buf[BUFFERSIZE];
+	char *s1 = "world!";
+	int req;
+	req = snprintf(buf&#44; BUFFERSIZE&#44; "hello %s"&#44; s1);
+	printf("%s\n"&#44; buf);
+}
+</PRE>
+
+注意: req &gt;= BUFFERSIZE の時は、後ろが切られている。
+
+</P><P>
+
+fprintf() を使えば、snprintf() や strcpy() は多くの場合で不要になる。
+
+</P><P>
+画面に表示するプログラム(1)
+<PRE class="program">
+main() {
+	printf("hello %s\n"&#44; "world!");
+}
+</PRE>
+
+画面に表示するプログラム(2)
+<PRE class="program">
+main() {
+	fprintf(stdout&#44; "hello %s\n"&#44; "world!");
+}
+</PRE>
+
+ネットワークに出力するプログラム
+<PRE class="program">
+{
+	fprintf(out&#44; "hello %s\r\n"&#44; "world!");
+}
+</PRE>
+
+strncpy() は、指定されたnバイト、余った部分を全部0で埋める。
+これは、固定長の構造体をファイルに保存する時に有用性があるが、
+それ以外では strlcpy() の方が良い。
+Linux には strlcpy() は、libbsd-dev (Debian, Ubuntu) や
+libbsd-devel (Redhat, CentOS) に含まれている。
+また、ヘッダファイルは、次のファイルに含まれている。
+
+<PRE class="program">
+#include &lt;bsd/string.h&gt;
+</PRE>
+
+strlcpy() は snprintf() で代用できる。
+<A HREF="https://man.freebsd.org/cgi/man.cgi?query=strlcpy&sektion=3">FreeBSD の man ページ</A>
+等にも書いてある。
+次の2つは同じである。
+
+<PRE class="program">
+	n = strlcpy(dst&#44; src&#44; dst_len);
+	n = snprintf(dst&#44; dst_len&#44; "%s"&#44; src);
+</PRE>
+
+大事なことは、dst_len はdstのサイズの固定長にすること。
+決して、srcからstrlen()等で計算してはならない。
+
+
+<H4><A id="var-func-names-comments">名前とコメント</A></H4>
+
+</P><P>
+
+例題をコピーする時の注意点
+
+<UL>
+
+<LI> 関数名、変数名をきちんとつける練習をすること。
+（例題のものを修正すること。）
+
+<LI> コメントも修正すること。
+
+</UL>
+
+練習しないと、上達しない。
+
+</P><P>
+
+プログラムを書く時の目標
+<UL>
+<LI> 課題の基準を満たすプログラムを書く
+<LI> ちゃんとしたプログラムを書く
+</UL>
+
+<H4><A id="filedesc-file-struct">ファイル記述子とFILE *</A></H4>
+
+端末で動作するプログラムは、シェルにより、open() システム・コールや
+fopen() ライブラリ関数を使わなくても、3つのファイル記述子と FILE *が利
+用可能になっている。
+
+<TABLE border class="table">
+<TR><TD>ファイル記述子</TD>	<TD>FILE *</TD></TR>
+<TR><TD>0</TD>	<TD>stdin</TD></TR>
+<TR><TD>1</TD>	<TD>stdout</TD></TR>
+<TR><TD>2</TD>	<TD>stderr</TD></TR>
+</TABLE>
+
+その他のファイルは、open()、または、fopen() で開いて利用する。
+
+</P><P>
+
+open() は、ファイル記述子を返すが、それは、小さな整数である。
+普通、0, 1, 2 は使われているので、open() すると 3 以上の整数が返される。
+
+open() で開いたファイル後で FILE * の機能を使いたくなった時には、
+<SPAN id="fdopen">fdopen()</SPAN>
+というライブラリ関数が使える。
+
+<PRE class=table>
+FILE *fdopen(int fd, const char *mode);
+</PRE>
+
+</P><P>
+
+逆に、fopen() で開いて得た FILE * からファイル記述子を得たい場合には、
+<SPAN id="fileno">fileno()</SPAN> というライブラリ関数が使える。
+
+<PRE class=table>
+int fileno(FILE *stream);
+</PRE>
+
+</P><P>
+
+
+<H3 id="review">復習</H3>
+
+<UL>
+<LI> <A HREF="../2026-07-08/index.html#tcpip">TCP/IPの基本的な考え方</A>
+<LI> <A HREF="../2026-07-08/index.html#tcpip-connection-establish">通信路の開設</A>
+<LI> <A HREF="../2026-07-08/index.html#telnet">TCP/IP の汎用クライアント・プログラムとしての telnet コマンド</A>
+<LI> <A HREF="../2026-07-08/index.html#echo-client">echoサービスのクライアント</A>
+</UL>
+
+
+<H2 id="echo-server">echoサーバ</H2>
+
+TCP/IP のポート番号 7 (echo) では、受け取ったデータをそのまま返すサー
+ビスを提供している。以下は、これと同じような機能を提供するサーバである。
+
+<H3 id="echo-server-nofork-fdopen.c">echo-server-nofork-fdopen.c</H3>
+
+<H4><A id="main">echo-server-nofork-fdopen.c のmain()</A></H4>
+
+[<A HREF="echo-server-nofork-fdopen.c"><CODE lang="en">echo-server-nofork-fdopen.c</CODE></A>] [<A HREF="coins-syspro.c"><CODE lang="en">coins-syspro.c</CODE></A>]
+
+<PRE class="program">
+   1:	
+   2:	/*
+   3:	  echo-server-nofork-fdopen.c -- 受け取った文字列をそのまま返すサーバ(fork無し版)
+   4:	  ~yas/syspro/ipc/echo-server-nofork-fdopen.c
+   5:	*/
+   6:	
+   7:	#include "coins-syspro.c"
+   8:	
+   9:	extern  void echo_server( int portno&#44; int ip_version );
+  10:	extern  void echo_receive_request_and_send_reply( int com );
+  11:	extern  int  echo_receive_request( char *line&#44; size_t size&#44; FILE *in );
+  12:	extern  void echo_send_reply( char *line&#44; FILE *out );
+  13:	
+  14:	int
+  15:	main( int argc&#44; char *argv[] )
+  16:	{
+  17:	        int portno&#44; ip_version;
+  18:	
+  19:	        if( !(argc == 2 || argc==3) ) {
+  20:	                fprintf(stderr&#44;"Usage: %s portno {ipversion}\n"&#44;argv[0] );
+  21:	                exit( 1 );
+  22:	        }
+  23:	        portno = strtol( argv[1]&#44;0&#44;10 );
+  24:	        if( argc == 3 )
+  25:	                ip_version = strtol( argv[2]&#44;0&#44;10 );
+  26:	        else
+  27:	                ip_version = 46; /* Both IPv4 and IPv6 by default */
+  28:	        echo_server( portno&#44; ip_version );
+  29:	}
+  30:	
+</PRE>
+
+main() は、引数として、ポート番号、IPのバージョン(4か6)を取る。
+文字列で受け取ったポート番号を strtol() で int へ変換している。
+IPのバージョンが省略されたら IPv6 と IPv4 両方(射影)とする。
+最後に、echo_server() を呼ぶ。
+
+</P><P>
+
+<H4><A id="echo_server">echo-server-nofork-fdopen.c のecho_server()</A></H4>
+
+echo_server() は、echoサーバのメインループである。
+
+</P><P>
+
+<PRE class="program">
+  31:	void
+  32:	echo_server( int portno&#44; int ip_version )
+  33:	{
+  34:	        int acc&#44;com ;
+  35:	
+  36:	        acc = tcp_acc_port( portno&#44; ip_version );
+  37:	        if( acc&lt;0 )
+  38:	                exit( 1 );
+  39:	        print_my_host_port( portno );
+  40:	        tcp_sockaddr_print( acc );
+  41:	        while( 1 )
+  42:	        {
+  43:	                printf("[%d] accepting incoming connections (acc==%d) ...\n"&#44;
+  44:	                       getpid()&#44;acc );
+  45:	                if( (com = accept( acc&#44;0&#44;0 )) &lt; 0 )
+  46:	                {
+  47:	                        perror("accept");
+  48:	                        exit( -1 );
+  49:	                }
+  50:	                printf("[%d] connection (fd==%d) from "&#44;getpid()&#44;com );
+  51:	                tcp_peeraddr_print( com );
+  52:	                echo_receive_request_and_send_reply( com );
+  53:	        }
+  54:	}
+  55:	
+</PRE>
+
+</P><P>
+
+tcp_acc_port() は、引数で与えられたポート番号を使って接続要求受付用ポー
+トを作成し、そのファイル記述子(ソケット)を返す。
+このファイル記述子は、クライアント側とは異なり、そのままでは通信に
+用いることはできない。
+
+print_my_host_port() は、telnet で接続する時のヒントを表示する。
+tcp_sockaddr_print() は、自身の IP アドレスとポート番号を表示する。
+
+</P><P>
+
+サーバのプログラムの特徴は、内部に無限ループを持っていることである。
+サーバは、普通の状態では、終了しない。
+
+</P><P>
+
+accept() は、接続要求を待つシステムコールである。クライアントから接続
+が来るまで、システムコールを実行したまま止まっているように見える。接続
+要求が届くと、TCP/IP通信路が開設され、通信用ポートのファイル記述子が返
+される。このファイル記述子は、クライアント側と同様に
+
+標準入出力(0,1,2)や open() システム・コールの結果と同じもので、
+ファイルに対する write() システムコールや read() システムコールの第一引数とし
+て使うことができる。つまり、write() システムコールを使うと、ネットワー
+クに対してデータを送り出すことができ、read() システムコールを使うとネッ
+トワークからデータを受け取ることができる。最後に不要になったら close() 
+で解放する。
+
+</P><P>
+
+tcp_peeraddr_print() を呼び出し、通信相手(peer)のIPアドレスとポート番号
+を表示する。
+
+</P><P>
+
+最後に、echo_receive_request_and_send_reply() を呼び出し、その通信相手
+についての処理を行う。
+
+</P><P>
+
+<H4><A id="echo_receive_request_and_send_reply">echo_receive_request_and_send_reply()</A></H4>
+
+echo_receive_request_and_send_reply() は、1つの通信相手のクライアントに
+対してechoサービスを提供する。
+
+</P><P>
+
+<PRE class="program">
+  56:	#define BUFFERSIZE      1024
+  57:	
+  58:	void
+  59:	echo_receive_request_and_send_reply( int com )
+  60:	{
+  61:	        char line[BUFFERSIZE] ;
+  62:	        int rcount ;
+  63:	        int wcount ;
+  64:	        FILE *in&#44; *out ;
+  65:	
+  66:	        if( fdopen_sock(com&#44;&amp;in&#44;&amp;out) &lt; 0 )
+  67:	        {
+  68:	                perror("fdopen");
+  69:	                exit( 1 );  /* exit when no memory */
+  70:	        }
+  71:	        while( (rcount=echo_receive_request(line&#44;BUFFERSIZE&#44;in))&gt;0 )
+  72:	        {
+  73:	                printf("[%d] received (fd==%d) %d bytes&#44; [%s]\n"&#44;
+  74:	                       getpid()&#44;com&#44;rcount&#44;line );
+  75:	                fflush( stdout );
+  76:	                echo_send_reply( line&#44;out );
+  77:	        }
+  78:	        if( rcount &lt; 0 )
+  79:	                perror("fgets");
+  80:	        printf("[%d] connection (fd==%d) closed.\n"&#44;getpid()&#44;com );
+  81:	        fclose( in );
+  82:	        fclose( out );
+  83:	}
+  84:	
+</PRE>
+
+この echo_receive_request_and_send_reply() は、特定のクライアント専用の
+echo サービスを提供する。クライアントからの要求が続く限り、動作する。
+
+</P><P>
+
+このプログラムでは、
+<A HREF="../2026-07-08/index.html#echo-client-fdopen-one.c">クライアント側</A>
+と同様に fdopen_sock() を使って、通信可能なファイル記
+述子 com から２つの FILE * を作成している。１つは、入力用、１つは出力
+用である。その結果、
+
+高水準入出力ライブラリ
+
+を使って通信が行えるようになっている。fprintf() で出力用の FILE * に書
+き込むと、ネットワークに対してデータが送り出される。入力用の FILE * に 
+fgets() を行うと、ネットワークからデータを受け取ることができる。
+
+</P><P>
+
+この関数は、クライアントから届いた要求メッセージを
+echo_receive_request() で配列 line に受信している。受信したメッセージ
+は、<CODE lang="en">&#39;\0&#39;</CODE> で終端されている。
+
+このプログラムは、echo サービスであるので、受信したメッセージをそのまま
+echo_send_reply() でクライアントに送信している。
+
+この関数は、デバッグのために、端末に printf() で受信したメッセージを表
+示している。
+
+
+</P><P>
+
+<H4><A id="echo_receive_request">echo_receive_request()</A></H4>
+
+<PRE class="program">
+  85:	int
+  86:	echo_receive_request( char *line&#44; size_t size&#44; FILE *in )
+  87:	{
+  88:	        if( fgets( line&#44;size&#44;in ) )
+  89:	        {
+  90:	                return( strlen(line) );
+  91:	        }
+  92:	        else
+  93:	        {
+  94:	                if( ferror(in) )
+  95:	                        return( -1 );
+  96:	                else
+  97:	                        return( 0 );
+  98:	        }
+  99:	}
+ 100:	
+</PRE>
+
+</P><P>
+
+echo_receive_request() は、エコー・サービスで、要求メッセージを
+受信する関数である。
+
+このプログラムは、fgets() で1行読み出している。
+うまく受信できれば、受信したメッセージの長さを返す。
+エラーがおきれば、-1、eof なら 0 を返す。
+
+<H4><A id="echo_send_reply">echo_send_reply()</A></H4>
+
+<PRE class="program">
+ 101:	void
+ 102:	echo_send_reply( char *line&#44; FILE *out )
+ 103:	{
+ 104:	        fprintf(out&#44;"%s"&#44;line );
+ 105:	}
+</PRE>
+
+</P><P>
+
+echo_send_reply() は、エコー・サービスで、応答メッセージを
+送信する関数である。
+
+fprintf() を使って送信している。メッセージには行末の \n は含まれている
+ので、ここでは付加していない。
+
+</P><P>
+
+この fprintf() では、fdopen_sock() でバッファリングを抑止しているので
+fflush() は不要になっている。
+
+</P><P>
+
+<H4><A id="echo-server-nofork-fdopen-run">echo-server-nofork-fdopenの実行例</A></H4>
+
+</P><P>
+
+<A id="echo-server-fork-result">サーバ側。</A>
+
+サーバ・プロセスは、自発的には終了しない。終了させるには、キーボードで
+<KBD>^C</KBD> を押し、シグナルを発生させる。
+
+</P><P>
+注意：同じポート番号 1231 を同じコンピュータで複数人が同時に使おうとす
+るとbind でエラーが出ることがある。
+
+</P><P>
+注意2: Coins のコンピュータで実験する時は、azalea, jelly を使うこと。
+violet01, violet03 では、特定のポート番号のサービスしか利用できない
+ようになっている。
+
+</P><P>
+
+
+<PRE class="interaction" lang="en">
+$ <STRONG>ls -l echo-server-nofork-fdopen.c  <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+ls: echo-server-nofork-fdopen.c: No such file or directory
+                              # ファイルが存在しないことの確認
+$ <STRONG>cp ~yas/syspro/ipc/echo-server-nofork-fdopen.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>cp -i ~yas/syspro/ipc/coins-syspro.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>ls -l echo-server-nofork-fdopen.c coins-syspro.c <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+-rw-r--r-- 1 yas prof 9677  7月  2 13:45 coins-syspro.c
+-rw-r--r-- 1 yas prof 2163  7月  2 13:46 echo-server-nofork-fdopen.c
+$ <STRONG>make echo-server-nofork-fdopen <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+cc     echo-server-nofork-fdopen.c   -o echo-server-nofork-fdopen
+$ <STRONG>./echo-server-nofork-fdopen <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Usage: ./echo-server-nofork-fdopen portno {ipversion}
+$ <STRONG>./echo-server-nofork-fdopen 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+run telnet azalea16 1231
+[::]:1231
+[2095897] accepting incoming connections (acc==3) ...
+[2095897] connection (fd==4) from [2001:2f8:3a:1711::231:13]:49726
+[2095897] received (fd==4) 5 bytes, [abc
+]
+[2095897] received (fd==4) 5 bytes, [def
+]
+[2095897] received (fd==4) 5 bytes, [ghi
+]
+[2095897] connection (fd==4) closed.
+[2095897] accepting incoming connections (acc==3) ...
+[2095897] connection (fd==4) from [2001:2f8:3a:1711::231:13]:35724
+[2095897] received (fd==4) 5 bytes, [123
+]
+[2095897] received (fd==4) 5 bytes, [456
+]
+[2095897] received (fd==4) 5 bytes, [789
+]
+[2095897] connection (fd==4) closed.
+[2095897] accepting incoming connections (acc==3) ...
+<STRONG>^C</STRONG>
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+クライアント側
+
+<PRE class="interaction" lang="en">
+$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::231:16...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+abc
+abc
+def
+def
+ghi
+ghi
+^]
+telnet> quit
+Connection closed.
+$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::231:16...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+123
+123
+456
+456
+780
+780
+^]
+telnet> quit
+Connection closed.
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+
+
+
+<H2 id="multiple-client">複数のクライアントに対するサービスの同時提供</H2>
+
+複数のクライアントに対してサービスを同時に提供することが望ましい。
+
+<A HREF="#echo-server-nofork-fdopen.c">echo-server-nofork-fdopen.c</A> 
+は、１つのクライアントから接続されると、そのクライアントに掛り切りに
+なって、他のクライアントにはサービスを提供できないという問題がある。
+
+
+標準の echo サーバ(ポート番号 7 で動作している) は、複数のクライアント
+から接続された場合、同時にサービスを提供することができる。
+
+</P><P>
+
+複数のクライアントに対してサービスを同時に提供するには次のような方法が
+ある。
+
+<UL>
+<LI> クライアントごとに fork() でプロセスをコピーする。
+<LI> クライアントごとに <STRONG>スレッド</STRONG>を生成する。
+<LI> select() を用いて、複数の接続を監視し、データが届いたことを確認し
+てから読み込む。
+</UL>
+
+詳しくは、<A HREF="../2026-07-22/index.html">次回</A> 説明する。
+
+
+
+
+<H2 id="http"><A HREF="../2026-07-08/index.html#http">HTTP(前回)</A></H2>
+
+<A HREF="../2026-07-08/index.html#http">前回</A>
+説明した HTTP を復習しなさい。
+
+
+<H3 id="http-request-full">HTTPの要求(オプション付き)</H3>
+
+たとえば、次のような URL を持つデータをアクセスすることを考える。
+
+</P><P>
+
+
+<BLOCKQUOTE>
+	<CODE lang="en">http://www.coins.tsukuba.ac.jp/~syspro/index.html</CODE>
+
+</BLOCKQUOTE>
+
+
+クライアントは、ホスト名とポート番号(省略時には80)を使い、TCP でサーバとの間に
+通信路を確立する。
+そして、次のような
+
+<A HREF="../2026-07-08/index.html#http-request">HTTPの要求メッセージ</A>を送る。
+要求メッセージは、最低、空行含めて3行である(仮想ホストがない場合は、Host: 行は省略可能)。
+
+<PRE class="interaction" lang="en">GET /syspro/index.html HTTP/1.0←↓
+Host: www.coins.tsukuba.ac.jp←↓
+←↓
+</PRE>
+
+HTTPの要求は、要求行(request line)から始まり、最後は、空行で終わる。
+
+実際の Web ブラウザは、次のように要求行と空行の間にオプションを含む要求
+を送る。
+
+<PRE class="interaction" lang="en">
+GET /~syspro/index.html HTTP/1.1←↓
+Host: www.coins.tsukuba.ac.jp←↓
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:127.0) Gecko/20100101 Firefox/127.0←↓
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8←↓
+Accept-Language: ja,en-US;q=0.7,en;q=0.3←↓
+Accept-Encoding: gzip, deflate, br, zstd←↓
+Connection: keep-alive←↓
+Upgrade-Insecure-Requests: 1←↓
+Sec-Fetch-Dest: document←↓
+Sec-Fetch-Mode: navigate←↓
+Sec-Fetch-Site: cross-site←↓
+Priority: u=1←↓
+Pragma: no-cache←↓
+Cache-Control: no-cache←↓
+←↓
+</PRE>
+
+空行は、オプションの終了を意味する。
+オプションは全部無視しても、最低限の HTTP サーバを作成することはできる。
+サーバとしては、送られてきた要求メッセージを全て受け取る必要はある。
+(空行が現れるまで受け取り続ける必要がある。)
+
+</P><P>
+
+サーバは、HTTP の応答メッセージを送り返す。
+応答メッセージとしては、最低限次のような行が期待される。
+
+<PRE class="interaction" lang="en">
+HTTP/1.0 200 OK←↓
+Content-Type: text/html←↓
+←↓  (空行)
+&lt;html&gt;省略&lt;/html&gt;↓
+</PRE>
+
+1行目は、
+
+<SPAN id="status-line">成功/失敗を示す行(status line)</SPAN>
+
+である。200 は、成功したことを意味する。
+2行目は、HTTPの応答の型を意味する。この例では、内容は、HTML であることを意味する。
+3行目は、空行であり、HTTP 応答のヘッダの終りを意味する。
+空行以降は、内容である。この例では、HTML で記述されている。
+
+</P><P>
+
+実際には次のように、HTTP サーバは、様々なヘッダと本文を送り返す。
+
+<PRE class="interaction" lang="en">
+HTTP/1.1 200 OK←↓
+Date: Mon, 08 Jul 2026 07:40:13 GMT←↓
+Server: Apache←↓
+Last-Modified: Thu, 27 Jun 2026 09:25:55 GMT←↓
+ETag: "6cb-61bdbb7c82549"←↓
+Accept-Ranges: bytes←↓
+Content-Length: 1739←↓
+Connection: close←↓
+Content-Type: text/html←↓
+←↓  (空行)
+&lt;html&gt;省略&lt;/html&gt;↓
+</PRE>
+
+</P><P>
+
+<H2 id="http-server">http-server</H2>
+
+以下のプログラムは、HTTP で要求を受け取り、
+HTTPで常に一定の内容を返すサーバである。
+
+<A HREF="#echo-server">echoサーバ</A>
+と似せて作ってあるので、まずは、echoサーバを読んで理解することを奨める。
+
+<H3 id="http-server.c">http-server.c</H3>
+
+<H4><A id="htt-server-main">http-server.c のmain()</A></H4>
+
+[<A HREF="http-server.c"><CODE lang="en">http-server.c</CODE></A>]
+[<A HREF="coins-syspro.c"><CODE lang="en">coins-syspro.c</CODE></A>]
+
+<PRE class="program">
+   1:	
+   2:	/*
+   3:	  http-server-.c -- 常に同じ内容を返す HTTP サーバ(forkなし版)
+   4:	  ~yas/syspro/ipc/http-server.c
+   5:	*/
+   6:	
+   7:	#include "coins-syspro.c"
+   8:	
+   9:	extern  void http_server( int portno&#44; int ip_version );
+  10:	extern  void http_receive_request_and_send_reply( int com );
+  11:	extern  int  http_receive_request( FILE *in );
+  12:	extern  void http_send_reply( FILE *out );
+  13:	extern  void http_send_reply_bad_request( FILE *out );
+  14:	extern  void print_my_host_port_http( int portno );
+  15:	
+  16:	int
+  17:	main( int argc&#44; char *argv[] )
+  18:	{
+  19:	        int portno&#44; ip_version;
+  20:	
+  21:	        if( !(argc == 2 || argc==3) ) {
+  22:	                fprintf(stderr&#44;"Usage: %s portno {ipversion}\n"&#44;argv[0] );
+  23:	                exit( 1 );
+  24:	        }
+  25:	        portno = strtol( argv[1]&#44;0&#44;10 );
+  26:	        if( argc == 3 )
+  27:	                ip_version = strtol( argv[2]&#44;0&#44;10 );
+  28:	        else
+  29:	                ip_version = 46; /* Both IPv4 and IPv6 by default */
+  30:	        http_server( portno&#44;ip_version );
+  31:	}
+  32:	
+</PRE>
+
+main() は、引数として、ポート番号を取る。
+文字列で受け取ったポート番号を strtol() で int へ変換している。
+最後に、http_server() を呼ぶ。
+
+
+
+
+<A HREF="#main">echo-server-nofork-fdopen.cのmain()</A>とほとんど同じ。
+
+</P><P>
+
+<H4><A id="http_server">http-server.c のhttp_server()</A></H4>
+
+http_server() は、HTTPサーバのメインループである。
+
+</P><P>
+
+<PRE class="program">
+  33:	void
+  34:	http_server( int portno&#44; int ip_version )
+  35:	{
+  36:	        int acc&#44;com ;
+  37:	
+  38:	        acc = tcp_acc_port( portno&#44; ip_version );
+  39:	        if( acc&lt;0 )
+  40:	                exit( -1 );
+  41:	        print_my_host_port_http( portno );
+  42:	        tcp_sockaddr_print( acc );
+  43:	        while( 1 )
+  44:	        {
+  45:	                printf("[%d] accepting incoming connections (fd==%d) ...\n"&#44;getpid()&#44;acc );
+  46:	                if( (com = accept( acc&#44;0&#44;0 )) &lt; 0 )
+  47:	                {
+  48:	                        perror("accept");
+  49:	                        exit( -1 );
+  50:	                }
+  51:	                printf("[%d] connection (fd==%d) from "&#44;getpid()&#44;com );
+  52:	                tcp_peeraddr_print( com );
+  53:	                http_receive_request_and_send_reply( com );
+  54:	        }
+  55:	}
+  56:	
+</PRE>
+
+</P><P>
+
+<A HREF="#echo_server">echo-server-nofork-fdopen.cのecho_server()</A>とほとんど同じ。違いは、次の所だけ。
+
+<UL>
+<LI> print_my_host_portp() が print_my_host_port_http() になっている。
+<LI> 最後に http_receive_request_and_send_reply() を呼んでいる。
+</UL>
+
+</P><P>
+
+<H4><A id="http_receive_request_and_send_reply">http-server.c の  http_receive_request_and_send_reply() </A></H4>
+
+http_receive_request_and_send_reply() は、
+1つの通信相手のクライアントに対して HTTP により要求を受付け、
+HTTPにより応答を返す。
+
+</P><P>
+
+<PRE class="program">
+  57:	#define BUFFERSIZE      1024
+  58:	
+  59:	void
+  60:	http_receive_request_and_send_reply( int com )
+  61:	{
+  62:	        FILE *in&#44; *out ;
+  63:	
+  64:	        if( fdopen_sock(com&#44;&amp;in&#44;&amp;out) &lt; 0 )
+  65:	        {
+  66:	                perror("fdooen()");
+  67:	                exit( -1 );
+  68:	        }
+  69:	        if( http_receive_request( in ) )
+  70:	        {
+  71:	                http_send_reply( out );
+  72:	        }
+  73:	        else
+  74:	        {
+  75:	                http_send_reply_bad_request( out );
+  76:	        }
+  77:	        printf("[%d] Replied\n"&#44;getpid() );
+  78:	        fclose( in );
+  79:	        fclose( out );
+  80:	}
+  81:	
+</PRE>
+
+この関数では、
+<A HREF="#echo_receive_request_and_send_reply">echo-server-nofork-fdopen.cのecho_receive_request_and_send_reply()</A> と同様に、
+
+fdopen_sock() を使って、通信可能なファイル記
+述子 com から２つの FILE * を作成している。
+
+</P><P>
+
+http_receive_request() を呼び出し、HTTP で要求を受け取っている。
+もしエラーがなければ、http_send_reply() を呼び出し、HTTP で OK の応答を送信する。
+エラーが有れば、http_send_reply_bad_request() を呼び出し、エラーの
+応答を送信する。
+
+</P><P>
+
+<H4><A id="http_receive_request">http-server.c の http_receive_request() </A></H4>
+
+http_receive_request()は、HTTP の要求を解析し、画面に表示している。
+
+<PRE class="program">
+  82:	int
+  83:	http_receive_request( FILE *in )
+  84:	{
+  85:	        char requestline[BUFFERSIZE] ;
+  86:	        char rheader[BUFFERSIZE] ;
+  87:	        
+  88:	        if( fgets(requestline&#44;BUFFERSIZE&#44;in) &lt;= 0 )
+  89:	        {
+  90:	                printf("No request line.\n");
+  91:	                return( 0 );
+  92:	        }
+  93:	        chomp( requestline ); /* remove \r\n */
+  94:	        printf("requestline is [%s]\n"&#44;requestline );
+  95:	        while( fgets(rheader&#44;BUFFERSIZE&#44;in) )
+  96:	        {
+  97:	                chomp( rheader ); /* remove \r\n */
+  98:	                if( strcmp(rheader&#44;"") == 0 )
+  99:	                        break;
+ 100:	                printf("Ignored: %s\n"&#44;rheader );
+ 101:	        }
+ 102:	        if( strchr(requestline&#44;'&lt;') ||
+ 103:	            strstr(requestline&#44;"..") )
+ 104:	        {
+ 105:	                printf("Dangerous request line found.\n");
+ 106:	                return( 0 );
+ 107:	        }
+ 108:	        return( 1 );
+ 109:	}
+ 110:	
+</PRE>
+
+</P><P>
+
+http_receive_request() は、まず、
+
+<SPAN id="request-line">HTTPの要求の最初の行(request line)</SPAN>
+
+をfgets() で読み込む。次に、chomp() で行末の改行 <CODE lang="en">\n</CODE> や
+<CODE lang="en">\r</CODE> を取り除く。
+
+</P><P>
+
+要求行の内容に対して簡単なエラーチェックをしている。次のような
+パタンが含まれるとエラーにしている。
+
+<UL>
+<LI> 文字<CODE lang="en">&lt;</CODE> が現れる
+<LI> 文字列<CODE lang="en">".."</CODE> が現れる
+</UL>
+
+</P><P>
+
+最初の要求行に続き、オプションの行を読み出している。
+オプションの最後は、空行で終わる。
+空行が来るまで、オプションの行を読み出す。
+
+</P><P>
+
+このプログラムでは、オプションを一切使用していない。しかし、HTTP の要求
+で送られてきた要求を全て読み出している。プロトコル上、必ず読み出す必要
+がある。
+
+</P><P>
+
+<H4><A id="http_send_reply">http-server.c の http_send_reply()</A></H4>
+
+http_send_reply()は、HTTP の応答メッセージを File *out に出力している。
+
+<PRE class="program">
+ 111:	void
+ 112:	http_send_reply( FILE *out )
+ 113:	{
+ 114:	        fprintf(out&#44;"HTTP/1.0 200 OK\r\n"
+ 115:	                    "Content-Type: text/html\r\n"
+ 116:	                    "\r\n");
+ 117:	        fprintf(out&#44;"&lt;html&gt;&lt;head&gt;&lt;/head&gt;&lt;body&gt;hello.&lt;/body&gt;&lt;/html&gt;\n");
+ 118:	}
+ 119:	
+</PRE>
+
+</P><P>
+
+http_send_reply() は、HTTPのヘッダと本体を出力している。
+ヘッダは、status line に Content-Typeが続く。
+空行以降が本体である。
+
+</P><P>
+
+本体では、HTMLの文書を出力している。
+
+<H4><A id="http_send_reply_bad_request">http-server.c の http_send_reply_bad_request()</A></H4>
+
+http_send_reply_bad_request()は、
+HTTP の応答メッセージ(エラー)を File *out に出力している。
+
+<PRE class="program">
+ 120:	void
+ 121:	http_send_reply_bad_request( FILE *out )
+ 122:	{
+ 123:	        fprintf(out&#44;"HTTP/1.0 400 Bad Request\r\n"
+ 124:	                    "Content-Type: text/html\r\n"
+ 125:	                    "\r\n");
+ 126:	        fprintf(out&#44;"&lt;html&gt;&lt;head&gt;&lt;/head&gt;&lt;body&gt;400 Bad Request&lt;/body&gt;&lt;/html&gt;\n");
+ 127:	}
+ 128:	
+</PRE>
+
+</P><P>
+
+http_send_reply_bad_request() は、HTTPのヘッダと本体を出力している。
+ヘッダは、status line (エラー)に Content-Typeが続く。
+空行以降が本体である。
+
+</P><P>
+
+本体では、HTMLの文書を出力している。
+
+<H4><A id="http-server-run">http-serverの実行例</A></H4>
+
+</P><P>
+
+<A id="http-server">サーバ側。</A>
+
+サーバは、終了しないので、最後に、<KBD>^C</KBD> を押して、割り込みを掛け
+て終了させる。
+
+</P><P>
+注意：全員がポート番号 1231 を使うとプログラムが動かないことがある。
+</P><P>
+
+注意2: Coins のコンピュータで実験する時は、azalea, jelly を使うこと。
+violet01, violet03 では、特定のポート番号のサービスしか利用できない
+ようになっている。
+
+</P><P>
+
+
+<PRE class="interaction" lang="en">
+$ <STRONG>ls -l http-server.c <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+ls: http-server.c: No such file or directory
+$ <STRONG>cp ~yas/syspro/ipc/http-server.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>ls -l http-server.c <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+-rw-r--r-- 1 yas prof 2955  7月  2 14:08 http-server.c
+$ <STRONG>ls -l coins-syspro.c <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+-rw-r--r-- 1 yas prof 9677  6月 15 16:22 coins-syspro.c
+$ <STRONG>make http-server <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+cc     http-server.c   -o http-server
+$ <STRONG>./http-server <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Usage: ./http-server portno {ipversion}
+$ <STRONG>./http-server 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+open http://azalea16:1231/index.html
+[::]:1231
+[3035948] accepting incoming connections (fd==3) ...
+[3035948] connection (fd==4) from [2001:2f8:3a:1711::231:28]:35958
+No request line.
+[3035948] Replied
+[3035948] accepting incoming connections (fd==3) ...
+[3035948] connection (fd==4) from [2001:2f8:3a:1711::231:28]:35968
+requestline is [GET /index.html HTTP/1.1]
+Ignored: Host: azalea16:1231
+Ignored: User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:151.0) Gecko/20100101 Firefox/151.0
+Ignored: Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Ignored: Accept-Language: ja,en-US;q=0.9,en;q=0.8
+Ignored: Accept-Encoding: gzip, deflate
+Ignored: Connection: keep-alive
+Ignored: Upgrade-Insecure-Requests: 1
+Ignored: Priority: u=0, i
+[3035948] Replied
+[3035948] accepting incoming connections (fd==3) ...
+[3035948] connection (fd==4) from [2001:2f8:3a:1711::231:28]:48880
+requestline is [GET /favicon.ico HTTP/1.1]
+Ignored: Host: azalea16:1231
+Ignored: User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:151.0) Gecko/20100101 Firefox/151.0
+Ignored: Accept: image/avif,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5
+Ignored: Accept-Language: ja,en-US;q=0.9,en;q=0.8
+Ignored: Accept-Encoding: gzip, deflate
+Ignored: Connection: keep-alive
+Ignored: Referer: http://azalea16:1231/index.html
+Ignored: Priority: u=6
+[3035948] Replied
+[3035948] accepting incoming connections (fd==3) ...
+<STRONG>^C</STRONG>
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+クライアント側
+
+<PRE class="interaction" lang="en">$ <STRONG>open http://azalea16:1231/index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+Web ブラウザ Safari や Firefox, Google Chrome で
+<CODE lang="en">"http://azalea16:1231/index.html"</CODE> や
+<CODE lang="en">"http://azalea16.coins.tsukuba.ac.jp:1231/index.html"</CODE> 
+を開く。
+
+
+<H2 id="echo-server-details">echoサーバの細かい所</H2>
+
+以下の内容は、飛ばしてよい。
+
+<H4><A id="print_my_host_port">print_my_host_port()</A></H4>
+
+
+
+
+<A HREF="./echo-server-nofork-fdopen.html#print_my_host_port">print_my_host_port()</A> は、telnet で接続する時のヒントを表示する。
+
+<H4><A id="tcp_peeraddr_print">tcp_peeraddr_print()</A></H4>
+
+<A HREF="./echo-server-nofork-fdopen.html#tcp_peeraddr_print">tcp_peeraddr_print()</A> は、通信相手(peer)のアドレス(TCP/IPの場合、IPアド
+レスとポート番号)を表示する。
+
+<H4><A id="sockaddr_print">sockaddr_print()</A></H4>
+
+<A HREF="./echo-server-nofork-fdopen.html#sockaddr_print">sockaddr_print()</A> は、引数で与えられた struct sockaddr に含まれる
+IP アドレスとポート番号を画面に表示する関数である。
+
+<H4><A id="tcp_acc_port">tcp_acc_port()</A></H4>
+
+<A HREF="./echo-server-nofork-fdopen.html#tcp_acc_port">tcp_acc_port()</A> は、
+<A HREF="../2026-07-08/index.html#tcpip-connection-establish">通信路の開設</A>
+の仕事のうち、サーバ側で接続要求受付用ポートを作る関数である。
+
+<H4><A id="fdopen_sock">fdopen_sock()</A></H4>
+
+<A HREF="./echo-server-nofork-fdopen.html#fdopen_sock">fdopen_sock()</A>
+
+は、TCP/IP による通信を、fprintf(), fgets(), fread() 等で
+行えるようにする関数である。
+
+この関数は、
+<A HREF="../2026-07-08/index.html#fdopen_sock">クライアント側</A>
+とまったく同じである。
+
+<H2 id="http-server-details">http-serverの細かい所</H2>
+
+以下の内容は、飛ばしてよい。
+
+<H4><A id="print_my_host_port_http">http-server.c の print_my_host_port_http()</A></H4>
+
+<A HREF="http-server.html#print_my_host_port_http">http-server.cのprint_my_host_port_http()</A>は
+<A HREF="#print_my_host_port">echo-server-nofork-fdopen.cのprint_my_host_port()</A> と同様に、画面にサーバのホスト名
+とポート番号を表示している。ただし、Web ブラウザでアクセスする時に便利
+なように、URL の形をしている。
+
+<H4><A id="chomp">chomp()</A></H4>
+
+<A HREF="http-server.html#chomp">http-server.cのchomp()</A> は、行末の <CODE lang="en">\n</CODE> や<CODE lang="en">\r</CODE> を削除する関数である。
+
+<H4><A id="http-server-tcp_peeraddr_print">http-server.c のtcp_peeraddr_print()</A></H4>
+
+<A HREF="#tcp_peeraddr_print">echo-server-nofork-fdopen.cのtcp_peeraddr_print()</A>と同じ。
+
+<H4><A id="http-server-sockaddr_print">http-server.c のsockaddr_print()</A></H4>
+
+<A HREF="#sockaddr_print">echo-server-nofork-fdopen.cのsockaddr_print()</A>と同じ。
+
+<H4><A id="http-server-tcp_acc_port">http-server.c のtcp_acc_port()</A></H4>
+
+<A HREF="#tcp_acc_port">echo-server-nofork-fdopen.cのtcp_acc_port()</A>と同じ。
+
+<H4><A id="http-server-fdopen_sock">http-server.c のfdopen_sock()</A></H4>
+
+<A HREF="#fdopen_sock">echo-server-nofork-fdopen.cのfdopen_sock()</A>と同じ。
+
+
+
+<H2 id="exercise">練習問題</H2>
+
+<H3 id="exercise-701">練習問題(701) http-serverのコンパイルと実行</H3>
+
+
+<A HREF="#http-server">http-server.c</A> を、コンパイルして実行しなさい。
+次のクライアントでアクセスしなさい。
+
+<UL>
+<LI> Web ブラウザ(Firefox, Safari, その他)
+<LI> <A HREF="#w3m">w3m</A>
+や
+<A HREF="#lynx">lynx</A>等の
+文字端末で動作する Web ブラウザ。
+
+<LI> <A HREF="../2026-07-08/index.html#wget">wget コマンド、または、curlコマンド</A>
+<LI> <A HREF="../2026-07-08/index.html#telnet">telnet</A>
+<LI> 自分で作成した wcat (<A HREF="../2026-07-08/index.html#ex-http-client">練習問題 テキストを扱うHTTPクライアント</A>)
+</UL>
+
+http-server を実行した端末の表示されるメッセージの中で、次の部分に着目しなさい。
+
+<UL>
+<LI> 最初の行(<CODE lang="en">requestline is [...]</CODE>)
+<LI> 無視されたヘッダのオプション行(<CODE lang="en">Ignored: ...</CODE>)
+</UL>
+
+注意2: Coins のコンピュータで実験する時は、azalea, jelly を使うこと。
+violet01, violet03 では、特定のポート番号のサービスしか利用できない
+ようになっている。
+
+<H3 id="exercise-702">練習問題(702) echo-serverのコンパイルと実行</H3>
+
+<A HREF="#echo-server">echo-server-nofork-fdopen.c</A> を、コンパイルして実行しなさい。
+次のクライアントでアクセスしなさい。
+
+<UL>
+<LI> <A HREF="../2026-07-08/index.html#telnet">telnet</A>
+<LI> <A HREF="../2026-07-08/index.html#echo-client">echo-client-fdopen-one.c</A>
+</UL>
+
+注意2: Coins のコンピュータで実験する時は、azalea, jelly を使うこと。
+violet01, violet03 では、特定のポート番号のサービスしか利用できない
+ようになっている。
+
+<DIV id="string_split">
+<H3 id="exercise-703">練習問題(703) string_split()とfree_string_vector()の利用</H3>
+</DIV>
+
+次のファイルに含まれている関数 string_split() と free_string_vector()
+を利用しなさい。
+
+<UL>
+<LI> <CODE lang="en">~yas/syspro/string/string-split.c</CODE> [<A HREF="string-split.c"><CODE lang="en">string-split.c</CODE></A>] [<A HREF="coins-syspro.c"><CODE lang="en">coins-syspro.c</CODE></A>]
+
+</UL>
+
+これらの関数の引数と結果は、次のようになっている。
+
+<DL class="table">
+<DT> <CODE lang="en">int string_split( char *str, char del, int *countp, char ***vecp  )</CODE>
+<DD> 文字列 str を、区切り文字 del で分解する。
+結果を、countp と vecp に返す。
+ここで、count と vec は、
+<A HREF="../2026-06-10/index.html#argv">main() の引数</A>の argc, argv と同じ形式になっている。
+
+<DT> <CODE lang="en">void free_string_vector( int count, char **vec )</CODE>
+<DD> <CODE lang="en">string_split()</CODE> で得た vec のメモリを解放する。
+
+</DL>
+
+これらの関数は、次のようにして使う。
+<PRE class="program">
+    int count;
+    char **vec;
+    int i ;
+        str = "GET /index.html HTTP/1.0";
+	if( string_split( str&#44; ' '&#44; &amp;count&#44; &amp;vec ) &lt; 0 )
+	{
+	    perror("string_split-malloc");
+	    exit( 1 );
+	}
+	for( i=0 ; i&lt; count; i++ )
+	    printf("%d: %s\n"&#44; i&#44; vec[i] );
+	free_string_vector( count&#44; vec );
+</PRE>
+
+</P><P>
+
+これらの関数を使って、次のような文字列を解析し、count、 および、
+vec[0], vec[1], ... vec[count-1] にどのような値が返されるのかを調べなさ
+い。ただし、区切り文字としては ' ' (空白) を用いるものとする。
+
+<OL>
+<LI> "GET /index.html HTTP/1.0"
+<LI> "GET /index.html"
+<LI> "GET /index.html /favicon.ico HTTP/1.0"
+<LI> "GETa /index.html HTTP/1.0"
+</OL>
+
+
+
+<H3 id="exercise-704">練習問題(704) HTTPサーバの要求解析</H3>
+
+
+
+
+標準入力から HTTP の GET 要求を受け取り、要求行からファイル名を取り出す
+プログラム http-request-analyze を作成しなさい。たとえば、このプログラ
+ムに次のようなデータ(<A HREF="http-good-request.txt"><CODE lang="en">http-good-request.txt</CODE></A>)を標準入力から
+与えたとする。
+
+<P>
+
+すると、次のような結果を標準出力に出力する。
+
+<PRE class="interaction" lang="en">
+$ <STRONG>cp ~syspro/public_html/2026/2026-07-15/http-good-request.txt . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>./http-request-analyze < http-good-request.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+requestline is [GET /index.html HTTP/1.0]
+Ignored: Host: azalea16.coins.tsukuba.ac.jp:1231
+Ignored: User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0
+Ignored: Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+Ignored: Accept-Language: ja,en-US;q=0.7,en;q=0.3
+Ignored: Accept-Encoding: gzip, deflate
+Ignored: Connection: keep-alive
+Ignored: Upgrade-Insecure-Requests: 1
+filename is [/index.html].
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+
+次のファイルをコピーして修正しても良い。そのまま実行すると「change
+this.」(ここを変えなさい)と表示される。この課題では、この部分を修正する。
+
+<UL>
+<LI> ~syspro/public_html/2026/2026-07-15/http-request-analyze.c [<A HREF="http-request-analyze.c"><CODE lang="en">http-request-analyze.c</CODE></A>]
+</UL>
+
+このプログラム次のようなデータを与えて実行しなさい。
+
+<UL>
+<LI> 正しいデータの例
+<UL>
+<LI> ~syspro/public_html/2026/2026-07-15/http-good-request.txt [<A HREF="http-good-request.txt"><CODE lang="en">http-good-request.txt</CODE></A>]
+</UL>
+<LI> エラーを含むデータの例
+<UL>
+<LI> ~syspro/public_html/2026/2026-07-15/http-bad-request-1.txt [<A HREF="http-bad-request-1.txt"><CODE lang="en">http-bad-request-1.txt</CODE></A>]
+<LI> ~syspro/public_html/2026/2026-07-15/http-bad-request-2.txt [<A HREF="http-bad-request-2.txt"><CODE lang="en">http-bad-request-2.txt</CODE></A>]
+<LI> ~syspro/public_html/2026/2026-07-15/http-bad-request-3.txt [<A HREF="http-bad-request-3.txt"><CODE lang="en">http-bad-request-3.txt</CODE></A>]
+</UL>
+</UL>
+
+</P><P>
+
+http-request-analyze.c の関数 http_receive_request() で次のような動作を
+行う。
+
+<OL>
+
+<LI> 引数in (stdinが与えられる)から fgets() で 1 行読み込む。行末の \r
+や \n や \r\n を削除する。<A HREF="#chomp">chomp()</A>を使っている。
+
+<LI> <A HREF="#request-line">最初の行</A>を変数 requestline に保存する。
+<LI> 2行目以降、空行が出てくるまで読み捨てる。
+<LI> 空行が出てくれば、ループを抜け、保存してある最初の行(requestline)を解析する。
+</OL>
+
+requestlineの解析は、次のように行う。
+
+<OL>
+
+<LI> requestline に「&lt;」や「..」が含まれていたら、エラー。
+<LI> requestline を <A HREF="#string_split">string_split()</A>
+等で、空白「<CODE lang="en"> ''</CODE>」を区切り文字として分割する。
+string_split() は、内部で malloc() を呼んでメモリを確保している。
+<LI> 要素数が 3 でなければエラー。
+<LI> 最初の要素が "GET" でなければエラー。
+<LI> 最後の要素が "HTTP/1.0" か "HTTP/1.1" でなければエラー。
+<LI> 2つ目の要素を filename にコピーする。
+<LI> <A HREF="#string_split">string_split()</A>を使っていた時には、
+<A HREF="#string_split">free_string_vector()</A> を呼び、メモリを解放する。
+<LI> return 1 で、成功したことを返す。
+
+</OL>
+
+エラーを返す前に、malloc() で確保したメモリを free() で解放しなさい。そ
+うしなければ、メモリ・リークが生じる。メモリは、string_split() でも確保
+されている。string_split() で確保そされたメモリは、
+free_string_vector()で解放する。
+
+</P><P>
+
+クライアントは、不正な要求行を送ってくる可能性がある。そのような場合に
+は、エラーにしなさい。たとえば、次のようなデータを送ってくる可能性があ
+る。
+
+<UL>
+<LI> 語数が少ない
+<PRE class="interaction" lang="en">
+$ <STRONG>cp ~syspro/public_html/2026/2026-07-15/http-bad-request-1.txt . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>./http-request-analyze < http-bad-request-1.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+＜・・・中略・・・＞
+Bad Request.
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+<LI> 語数が多い、空白(区切り)が含まれていない。
+<PRE class="interaction" lang="en">
+$ <STRONG>cp ~syspro/public_html/2026/2026-07-15/http-bad-request-2.txt . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>./http-request-analyze < http-bad-request-2.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+＜・・・中略・・・＞
+Bad Request.
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+<LI> 最初の語が "GET" ではない。
+<PRE class="interaction" lang="en">
+$ <STRONG>cp ~syspro/public_html/2026/2026-07-15/http-bad-request-2.txt . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>./http-request-analyze < http-bad-request-3.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+＜・・・中略・・・＞
+Bad Request.
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+</UL>
+
+このような場合も、きちんとエラーメッセージを出力しなさい。プログラムが
+クラッシュしたり、バッファ・オーバーフローを起こしたりすることがないよ
+うに気をつけなさい。
+
+</P><P>
+
+なお、このプログラムは、HTTP の要求を標準入力(stdin)から読むが、ネット
+ワーク通信を一切行わない。
+
+
+</P><P>
+
+<H3 id="exercise-705">練習問題(705) HTTPサーバの応答(.htmlのみ)</H3>
+
+
+コマンドラインからファイル名を受け取り、画面に対して HTTPの応答を返すプ
+ログラム http-response-html を作成しなさい。
+
+<PRE class="interaction" lang="en">
+$ <STRONG>ls -l index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+-rw-r--r-- 1 yas prof  2280  6月  4 22:29 index.html
+$ <STRONG>./http-response-html /index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+HTTP/1.0 200 OK
+Content-Type: text/html
+
+&lt;HTML&gt;
+（カレントワーキングディレクトリにあるindex.htmlの内容）
+&lt;/HTML&gt;
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+次のファイルをコピーして修正しても良い。そのまま実行すると「change
+this.」(ここを変えなさい)と表示される。この課題では、この部分を修正する。
+
+<UL>
+<LI> ~syspro/public_html/2026/2026-07-15/http-response-html.c [<A HREF="http-response-html.c"><CODE lang="en">http-response-html.c</CODE></A>]  [<A HREF="coins-syspro.c"><CODE lang="en">coins-syspro.c</CODE></A>]
+</UL>
+
+このプログラムは、動作する関数が含まれている。残りの部分をうめて完成さ
+せない。全体としては、次のようなプログラムになる。
+
+<OL>
+
+<LI> main() は、引数 argv[1] を取る。これは、ファイル名の一部を表す。こ
+れと stdout を引数として http_send_reply() を呼ぶ。
+
+<LI> http_send_reply() は、まず、ファイル名の一部から拡張子を取得する。
+拡張子が空なら、エラーメッセージを出力してリターンする。
+
+<LI> 拡張子が ".html" の時のみ処理を行う。その他の時は、エラーメッセー
+ジを出力してリターンする。
+
+<LI> main の引数として与えられたファイル名の一部から実際のファイル名を
+作成する。例えば、カレントワーキングディレクトリを
+起点とする場合、"./" というプレフィックスを付けると良い。
+snprinf() を用いると便利である。(strcat() は用いないこと。)
+
+
+<PRE class="program">
+	char buf[BUFFERSIZE];
+	char *s;
+	int req;
+	s = "/index.html";
+	req = snprintf(buf&#44; BUFFERSIZE&#44; "./%s"&#44; s );
+</PRE>
+
+なお、ファイル名「/」は、複数付けても良い。
+".//index.html" や 
+".///////index.html" は
+"./index.html" と同じファイルを開く。
+
+<P>
+注意: req &gt;= BUFFERSIZE の時は、後ろが切られている。
+これを検出してエラーにすることが望ましい(やらなくても良い)。
+
+
+
+<LI> 4. で作成したファイル名を用いて、fopen() でファイルを開く。失敗し
+た時には、ファイルが存在しないことを意味する。その時は、
+http_send_reply_not_found() で、エラーメッセージを出力してリターンする。
+
+<LI> 成功すれば、ファイルが存在した時には、
+
+<A HREF="#status-line">成功/失敗を示す行(status line)</A>
+
+として<CODE lang="en">"HTTP/1.0 200 OK\r\n"</CODE> を出力する。
+
+<LI> 続いて、<CODE lang="en">"Content-Type: text/html\r\n"</CODE> を出力する。
+
+<LI> 続いて、空行 <CODE lang="en">"\r\n"</CODE> を出力する。
+
+<LI> 続いて、ファイルの内容を fgets() と fprintf() で出力する。
+この処理をファイルの末尾まで繰り返す。
+fgets() と fprintf()の代わりに
+fread() で入力し、その内容を fwrite() で
+出力する方法もある。
+
+fread() と fwrite() の使い方については、
+<A HREF="../2026-06-10/index.html">前半の資料</A>
+
+を参考にしなさい。
+
+</P><P>
+
+なお、この課題では、対象がテキストだけなので、fgets() と fprintf() を使っ
+てもよい。バイナリを扱う時には、fgets() と fprintf() では不十分である。
+fgetc() と fputc() でも動作するが、fread() と fwrite() よりも性能が低い。
+
+<LI> fopen() で開いたファイルを fclose() で閉じる。
+
+</OL>
+
+
+
+</P><P>
+
+この課題は、HTTP の応答を画面(stdout)に出力するが、ネットワーク通
+信を一切行わない。
+
+次のようにコマンドラインからデータを与え、プログラムが正しく動作してい
+ることを確認しなさい。
+
+<PRE class="interaction" lang="en">
+$ <STRONG>./http-response-html /existing-file-name.html # 存在するファイルの場合 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+（HTTP応答メッセージのヘッダと存在するファイルの内容が表示される）
+$ <STRONG>./http-response-html /file-not-found.html     # 存在しないファイルの場合 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+（HTTP応答メッセージのヘッダとエラーメッセージが表示される）
+$ <STRONG>./http-response-html /bad-file-name.txt       # 拡張子が .html ではない場合 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+（HTTP応答メッセージのヘッダとエラーメッセージが表示される）
+</PRE>
+
+</P><P>
+
+<H3 id="exercise-706">練習問題(706) HTTPサーバ(.htmlのみ)</H3>
+
+
+
+この課題を行なう前に、次の練習問題を先に解きなさい。
+
+<OL> 
+<LI> <A HREF="#exercise-701">練習問題(701) </A>
+<LI> <A HREF="#exercise-704">練習問題(704) </A>
+<LI> <A HREF="#exercise-705">練習問題(705) </A>
+</OL>
+
+これらのプログラムを組み合わせることで、.html のファイルのみを受け付け
+るHTTP サーバを作成しなさい。
+
+</P><P>
+
+もしこの課題に取り組む時、
+<A HREF="#exercise-704">練習問題(704) </A>と
+<A HREF="#exercise-705">練習問題(705) </A>
+で作成した関数をそのまま利用するならば、
+この課題のレポートには、それら2つの練習問題の結果を含めなくてよい。
+利用しないのであれば、
+それら2つの練習問題の結果も必ず含めななさい。
+
+</P><P>
+
+また、前回の課題、
+<A HREF="#exercise-704">練習問題(704) </A>
+で、バッファ・オーバーフローやメモリ・リーク等の問題を指摘された人は、
+その問題を解消した後でレポートを提出すること。
+
+</P><P>
+
+このサーバ・プログラムは、
+<A HREF="#echo-server-nofork-fdopen.c">echo-server-nofork-fdopen.c</A>や
+<A HREF="#http-server">http-server.c</A> と同じように、
+次のような引数を与えて実行可能にしなさい。
+
+<PRE class="interaction" lang="en">
+$ <STRONG>./http-server ポート番号 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+<PRE class="interaction" lang="en">
+$ <STRONG>./http-server ポート番号 IPバージョン <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+「IPバージョン」としては、4, 6, 46, 64 のいずれかを指定可能にしなさい。
+省略された場合は、46 が指定されたものとして扱いなさい。
+
+</P><P>
+
+注意: Coins のコンピュータで実験する時は、azalea, または jelly を使うこと。
+violet01 や violet03 では、特定のポート番号のサービスしか利用できない
+ようになっている。
+
+</P><P>
+
+作成したプログラムが動作することを、次の方法のいずれかで確認しなさい。
+
+<UL>
+<LI> Web ブラウザ(Firefox等)。
+レポートには利用したブラウザの名前、ブラウザに与えた URL、および、表示の結果(うまく表示された等)を含めなさい。
+
+<LI> <A HREF="#w3m">w3m</A>
+や
+<A HREF="#lynx">lynx</A>等の
+文字端末で動作する Web ブラウザ。
+レポートには利用したコマンド、端末で実行結果、および、得られた HTML ファイルの一部を含めなさい。
+
+<LI> <A HREF="../2026-07-08/index.html#wget">wgetコマンド、または、curlコマンド</A>。
+レポートには利用したコマンド、端末で実行結果、および、得られた HTML ファイルの一部を含めなさい。
+
+</UL>
+
+レポートには、サーバ側で表示も含めなさい。
+
+</P><P>
+
+クライアントから不正な要求が送られたとしても、exit() でサーバを終了し
+ないことが望ましい。
+
+この課題で exit() で終了しても良いのは、次のような場合である。
+
+<UL>
+
+<LI> サーバの管理者が明示的にサーバを終了した時。
+
+<LI> (メモリ・リーク等の自身のバグが原因で) malloc() が失敗したとき。
+malloc() は、自分が書いたプログラムが直接呼び出すものだけでなく、
+fdopen(), fdopen_sock(), string_split() 等からも間接的に呼び出される
+こともある。
+
+<LI> accept() がエラーを返した時。(本来はエラーの原因を追求して
+可能であれば回復して再実行したい。)
+
+</UL>
+
+次のような場合は、exit() でサーバを終了しないことが望ましい。
+
+<UL>
+<LI> 要求されたファイルが存在しない時。http_send_reply_not_found()でク
+ライアントにエラーを返す。
+<LI> 不正な要求が送られた時。http_send_reply_bad_request() でクライアン
+トにエラーを返す。
+</UL>
+
+
+</P><P>
+
+<H3 id="exercise-707">練習問題(707) HTTPサーバ(テキストのみ)</H3>
+
+<A HREF="#exercise-706">練習問題(706) </A>で、.html を含め
+て次のような拡張子を持つファイルを扱えるようにしなさい。
+この表にないものを加えても良い。
+
+<TABLE summary="扱うべき Content-Type " border class="table" lang="en">
+<TR><TH>	Content-Type:	</TH><TH>	拡張子	</TH></TR>
+<TR><TD>	text/html	</TD><TD>	.html	</TD></TR>
+<TR><TD>	text/plain	</TD><TD>	.txt	</TD></TR>
+<TR><TD>	text/plain	</TD><TD>	.text	</TD></TR>
+</TABLE>
+
+<H3 id="exercise-708">練習問題(708) HTTPサーバ(バイナリ)</H3>
+
+
+
+<A HREF="#exercise-706">練習問題(706) </A>で、.html を含め
+て次のような拡張子を持つファイルを扱えるようにしなさい。
+この表にないものを加えても良い。
+
+<TABLE summary="扱うべき Content-Type " border class="table" lang="en">
+<TR><TH>	Content-Type:	</TH><TH>	拡張子	</TH></TR>
+<TR><TD>	text/html	</TD><TD>	.html	</TD></TR>
+<TR><TD>	text/plain	</TD><TD>	.txt	</TD></TR>
+<TR><TD>	text/plain	</TD><TD>	.text	</TD></TR>
+<TR><TD>	image/gif	</TD><TD>	.gif	</TD></TR>
+<TR><TD>	image/jpeg	</TD><TD>	.jpeg	</TD></TR>
+<TR><TD>	image/png	</TD><TD>	.png	</TD></TR>
+</TABLE>
+
+</P><P>
+
+Webブラウザ等で画像等のバイナリを表示できることを確認しなさい。レポー
+トには、そのことを記載しなさい。サーバの端末表示としてWebブラウザ等か
+らアクセスされたことを確認できるようなログを表示しなさい。レポートには、
+その表示を含めなさい。
+
+</P><P>
+
+
+<H3 id="exercise-709">練習問題(709) IPアドレスによるアクセス制御が可能なHTTPサーバ</H3>
+
+
+
+この課題に取り組む前に、
+<A HREF="#exercise-706">練習問題(706) </A>と
+<A HREF="#exercise-708">練習問題(708) </A>を行ないなさい。
+この課題のレポートを提出する時、
+<A HREF="#exercise-706">練習問題(706) </A>と
+<A HREF="#exercise-708">練習問題(708) </A>の
+拡張であれば、これらの課題のレポートを提出する必用はない。
+拡張でなければ、これらの課題のレポートも一緒に提出しなさい。
+
+</P><P>
+
+補講で示したように、Coins で利用している HTTP サーバ Apache には
+<A HREF="../2026-05-20/www-access-control.html">Webページに対するアクセス制御</A>
+の機能がある。
+Apache は、IP アドレスによるアクセス制御を行う事ができる。
+
+このことを確認しなさい。
+
+</P><P>
+
+Apache と同様に、
+
+<A HREF="#exercise-708">練習問題(708) </A>
+
+で、特定のIPアドレスを持つコンピュータ
+からの接続要求だけを受け付け、HTML や画像を返し、
+その他は 403 Forbidden を返すようなさい。
+
+たとえば、クライアントのIPアドレスを getpeername() で調べ、次の IP アド
+レスの範囲(情報科学類LAN)についてのみアクセスを許可するようにしなさい。
+
+<UL>
+<LI> IPv4: 130.158.230.0/23, 130.158.222.0/23
+<LI> IPv6: 2001:2f8:3a:1700::/56 (うち 2001:2f8:3a:1711::/64, 2001:2f8:3a:1712::/64 を使用中)
+</UL>
+
+これ以外のアドレスからは、アクセスを拒否することを確認しなさい。そのた
+めに、次のような localhost のアドレスを使うことが考えられる。localhost
+は、自分自身に接続する特殊なネットワーク・インタフェース(ループバック・
+デバイス)を指す。
+
+<UL>
+<LI> IPv4: 127.0.0.1
+<LI> IPv6: ::1
+</UL>
+
+<A HREF="echo-server-nofork-fdopen.html#ipv4-mapped-address">IPv4射影アドレス（IPv4-mapped address）</A>
+にも注意すること。
+
+</P><P>
+
+この課題では、IP アドレスを文字列に変換するのではなく、
+<A HREF="../2026-07-08/sockaddr.html">struct sockaddr_inやstruct sockaddr_in6</A>
+のバイナリの形で扱うことが望ましい。
+たとえば
+<A HREF="../2026-07-08/marshaling.html#byte-order">バイト・オーダー</A>
+を意識して、上位バイトから比較し、上限と下限の間に含まれていることを確認する方法が考えられる。
+IP アドレスは、struct sockaddr_in や struct sockaddr_in6 ではビッグエンディアンで保存されている。
+上限下限と比較する方法の他に、ネットマスクと&amp;をとって比較する方法もある。
+
+</P><P>
+
+
+<H3 id="exercise-710">練習問題(710) ドメイン名によるアクセス制御が可能なHTTPサーバ</H3>
+
+<A HREF="#exercise-709">練習問題(709) </A>
+
+で、ドメイン名 coins.tsukuba.ac.jp を持つホストからのアクセスだけを許す
+ようにしなさい。
+
+
+<H3 id="exercise-711">練習問題(711) 名前ベースの仮想ホストに対応したHTTPサーバ</H3>
+
+</P><P>
+
+この課題に取り組む前に、
+<A HREF="#exercise-706">練習問題(706) </A>と
+<A HREF="#exercise-708">練習問題(708) </A>を行ないなさい。
+この課題のレポートを提出する時、
+<A HREF="#exercise-706">練習問題(706) </A>と
+<A HREF="#exercise-708">練習問題(708) </A>の
+拡張であれば、これらの課題のレポートを提出する必用はない。
+拡張でなければ、これらの課題のレポートも一緒に提出しなさい。
+
+</P><P>
+
+<A HREF="#exercise-708">練習問題(708) </A>
+を、名前ベースの仮想ホストに対応させなさい。HTTP の要求でオプションであ
+る Host: を読み、それに応じて異なるディレクトリの内容を返すようにしなさ
+い。
+
+</P><P>
+
+Firefox 等で試す時には、ホスト名として、次のようなものを利用する。
+
+<UL>
+<LI> 普通の名前。例: azalea16.coins.tsukuba.ac.jp
+<LI> ローカルホスト。localhost
+<LI> IP アドレス
+</UL>
+
+その他、/etc/hosts 等に実験用にホスト名を登録する方法がある。
+
+
+<H3 id="exercise-712">練習問題(712) カレンダを表示するHTTPサーバ</H3>
+
+要求された月のカレンダーを表示するような HTTP サーバを作成しなさい。
+要求の与え方とては、次のような方法が考えられる。
+
+<PRE class="interaction" lang="en"><STRONG>GET /?month=7&year=2026 HTTP/1.0</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]"><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+</PRE>
+
+カレンダの出力については、cal コマンドを実行した結果を用いても良い。こ
+れに対して、HTTP で結果を返す。Content-Type: としては、text/plain に
+するか、text/html で <CODE lang="en">&lt;PRE&gt;&lt;/PRE&gt;</CODE>を使う方法が
+考えられる。その他の手法でもよい。
+
+</P><P>
+
+このサーバを実行するための HTML の form を用意しなさい。
+
+</P><P>
+
+実際の Web ブラウザ (Firefoxなど)で、動作を確認しなさい。telnet だけで
+は、きちんと HTTP のプロトコルに従っているか確認できないので、不十分で
+ある。
+
+</P><P>
+
+
+<H3 id="exercise-713">練習問題(713) CGIが実行可能なHTTPサーバ</H3>
+
+
+
+<A HREF="#exercise-708">練習問題(708) </A>
+
+で、CGI により外部のプログラムを実行することができるようにしなさい。拡
+張子が <CODE lang="en">.cgi</CODE> のプログラムを CGI と見なし、プログラムを実行し、そ
+の結果をクライアントに返しなさい。
+
+</P><P>
+
+実際の Web ブラウザ (Firefoxなど)で、動作を確認しなさい。telnet だけで
+は、きちんと HTTP のプロトコルに従っているか確認できないので、不十分で
+ある。
+
+</P><P>
+
+<H3 id="exercise-714">練習問題(714) spipe-last</H3>
+
+
+
+</P><P>
+
+クライアントから送られてくるデータを、コマンドの標準入力に接続して実行
+するプログラムを作りなさい。たとえば、次のようなコマンドを実行すること
+を考える。
+
+<PRE class="interaction" lang="en">
+% <STRONG>./spipe-last 1231 head -5 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+＜クライアントから送られてきた文字列のうち、先頭の５行だけがサーバの画面に表示される＞
+% <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+spipe-last は、指定されたポート番号で tcp_acc_port() を行う。
+クライアントからの接続要求を受け付けた後、不要なポートを閉じ、標準出力を切
+り替えて、コマンドラインから指定されたコマンドを実行する。
+すなわち、dup(), dup2(), close() などで、標準出力を切り替えて、
+execve() などで、プログラムを実行する。
+コマンドを実行したらそのまま終了する。
+
+</P><P>
+
+クライアントとしては、telnet を用いてもよい。
+または、以下の spipe-first を用いることもできる。
+
+</P><P>
+
+この課題では、fork() を行わないことを推奨する。
+TCP/IP なら本来双方向で使えるが、この練習問題では単方向だけを
+使うことで、パイプの機能を代替する。
+
+</P><P>
+
+また、fork() とパイプを使う実現方法もある。コマンドを実行するする時に
+fork() して実行し、その標準入力をパイプにして、TCP/IP で受け取ったデー
+タをパイプに書き込んでもよい。
+
+
+<H3 id="exercise-715">練習問題(715) spipe-first</H3>
+
+
+<A HREF="#exercise-714">練習問題(714) spipe-last</A>
+のクライアントを作成しなさい。
+
+このクライアントは、引数で指定されたホスト名とポート番号のサーバに接続
+する。そして、引数で指定されたコマンドを実行する。
+
+たとえば、次のように実行された場合、spipe-first は、ls -l の結果を画面
+に表示される代わりにサーバに送られるようにする。
+
+<PRE class="interaction" lang="en">
+% <STRONG>./spipe-first <VAR>hostname</VAR> <VAR>port</VAR> ls -l <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+spipe-first は、指定されたホスト名とポート番号でtcp_connect() を行う。
+不要なポートを閉じ、標準出力を切り替えた後、指定されたコマンドを実行す
+る。すなわち、dup(), dup2(), close() などで、標準入出力を切り替えて、
+execve() などで、プログラムを実行する。
+コマンドを実行したらそのまま終了する。
+
+</P><P>
+
+この課題では、spipe-last と同様に、fork() を行わないことを推奨する。
+
+</P><P>
+
+<H3 id="exercise-716">練習問題(716) spipe-middle</H3>
+
+
+<A HREF="#exercise-714">練習問題(714) spipe-last</A>サーバと
+<A HREF="#exercise-715">練習問題(715) spipe-first</A>クライアントの
+間に入るプロキシ spipe-middle を作成しなさい。
+
+このプロキシは、次のような引数をとる。
+
+<PRE class="interaction" lang="en">
+% <STRONG>./spipe-middle <VAR>myport</VAR> <VAR>serverhost</VAR> <VAR>serverport</VAR> sort +4 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+spipe-middle は、第2引数と第3引数で指定されたサーバにtcp_connect() で接
+続要求を行う。
+tcp_acc_port() により、第1引数で指定された
+ポート番号で接続受付用ポートを作成する。
+spipe-first から接続要求を受け取ると、
+
+不要なポートを閉じ、標準入出力を切り替える。そして、第4引数以降で指定さ
+れたコマンドを実行する。
+
+<H3 id="exercise-717">練習問題(717) spipeでのクライアントとサーバの入れ替え</H3>
+
+<A HREF="#exercise-714">練習問題(714) spipe-last</A>と
+<A HREF="#exercise-715">練習問題(715) spipe-first</A>で、
+TCP/IPのクライアントとサーバを入れ替えてみなさい。
+
+<A HREF="#exercise-716">練習問題(716) spipe-middle</A>も
+クライアントとサーバを入れ替えなさい。
+
+
+<H3 id="exercise-718">練習問題(718) fingerサーバ</H3>
+
+</P><P>
+
+finger サーバを作成しなさい。これは、受け取った文字列を引数にして、
+finger コマンドを実行するとよい。そして、実行結果を、接続先に返すよう
+にするとよい。
+
+</P><P>
+
+finger コマンドのプロセスと finger サーバの間は、パイプで接続しなさい。
+今までの例題で利用した方法を組み合わせることで実現することができるはず
+である（pipe(),fork(),dup(),close(),execve()など）。popen() ライブラリ
+関数を利用してもよい。
+
+</P><P>
+
+finger コマンドのプロセスと finger サーバ間をパイプで結ぶ代わりに、
+finger コマンドを exec する前に、配管工事をして、標準出力(1)をTCP/IPの
+ストリームに接続する方法もある。
+
+</P><P>
+
+受け取った文字列をそのまま popen() や system() などに渡すのは危険である。
+というのも、これらの引数は、シェル(/bin/sh)が解釈するからである。
+popen() や system() を使う場合には、
+finger コ
+マンドが受付けるのに相応しいもの( isalpha() や isdigit() の並び)かどう
+かを検査しなさい。もし、シェルが解釈する特殊な文字列(|;&lt;&gt;
+など)が含まれていると、意図しないプログラムが実行させられることがある。
+
+</P><P>
+
+fork() や execve() を用いて直接 /usr/bin/finger を実行する方法はシェル
+を経由しないので、比較的安全である。
+
+</P><P>
+
+getpwnam() ライブラリ関数や 
+<A HREF="../2026-06-10/index.html#utmp.c">utmp</A>
+ファイルを用いて、finger コマンドと似たような
+動きを実現してもよい。
+
+</P><P>
+
+
+<H3 id="exercise-719">練習問題(719) HTTP Proxy</H3>
+
+
+
+</P><P>
+
+HTTP proxy 作りなさい。次の機能を、１つ以上付けなさい。
+
+<UL>
+<LI> アクセス制御。特定のホストからしかつながらないようにする。
+<LI> フィルタリング。内容の加工を行う。
+<LI> キャッシング。一度サーバから得た内容をファイルに保存し、
+２回目からはそれを使う。
+</UL>
+
+</P><P>
+
+<H3 id="exercise-720">練習問題(720) サーバ自由課題</H3>
+
+その他、<A HREF="#exercise-708">HTTPサーバ</A>、または、
+<A HREF="#exercise-719">HTTP Proxy</A> と同程度以上の複
+雑さを持つサーバを作成しなさい。
+
+<H3 id="exercise-721">練習問題(721) IPアドレスをホスト名に逆変換する</H3>
+
+</P><P>
+
+<A HREF="#tcp_peeraddr_print">echo-server-nofork-fdopen.cのtcp_peeraddr_print()</A>
+
+は、IP アドレスを数字で表示していた。
+これを、ホスト名で表示するようにしなさい。
+
+</P><P>
+
+<H3 id="exercise-722">練習問題(722) utmpの内容を表示するHTTPサーバ</H3>
+
+utmpの内容を表示するような HTTP サーバを作成しなさい。
+HTTPにより要求を受け取り、結果をHTMLの&lt;TABLE&gt;で表現して
+HTTPで返しなさい。
+
+</P><P>
+
+実際の Web ブラウザ (Firefoxなど)で、動作を確認しなさい。telnet だけで
+は、きちんと HTTP のプロトコルに従っているか確認できないので、不十分で
+ある。
+
+</P><P>
+
+<H3 id="exercise-723">練習問題(723) ディレクトリの内容を表示するHTTPサーバ</H3>
+
+opendir() ライブラリ関数を用いて、ディレクトリの内容を表示するような
+HTTP サーバを作成しなさい。HTTPにより要求を受け取り、結果をHTMLで表現し
+てHTTPの応答として返しなさい。ディレクトリの内部に子供のディレクトリが
+含まれていた場合、それをハイパーリンクとして表現して返し、その子供のディ
+レクトリについても表示できるようにしなさい。
+
+</P><P>
+
+実際の Web ブラウザ (Firefoxなど)で、動作を確認しなさい。telnet だけで
+は、きちんと HTTP のプロトコルに従っているか確認できないので、不十分で
+ある。
+
+</P><P>
+
+<DIV id="w3m">
+<H3 id="exercise-724">練習問題(724) Webブラウザ w3m</H3>
+</DIV>
+
+<A HREF="http://w3m.sourceforge.net/">w3m</A>は、
+
+iTerm などの文字端末で動作する Web ブラウザである。
+w3m を使ってみなさい。
+
+<PRE class="interaction" lang="en">$ <STRONG>w3m http://www.coins.tsukuba.ac.jp/ <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>w3m http://localhost:1231/index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+次のように打つと、詳しい説明が表示される。
+<PRE class="interaction" lang="en">$ <STRONG>w3m --help 2&gt;&amp;1 | lv <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+w3mコマンドは、標準エラー出力に使い方を表示する。
+これを lv で表示するには、<CODE lang="en">2&gt;&amp;1 |</CODE> を用いる。
+
+</P><P>
+
+詳しくは、man w3m や次の Web ページを見なさい。
+<A HREF="http://w3m.sourceforge.net/"><CODE lang="en">http://w3m.sourceforge.net/</CODE></A>。
+
+coins では、次のように man コマンドでマニュアルを読みなさい。
+
+<PRE class="interaction" lang="en">$ <STRONG>man w3m <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>LANG=C man w3m # 英語の場合 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+<DIV id="lynx">
+<H3 id="exercise-725">練習問題(725) Webブラウザ lynx</H3>
+</DIV>
+
+<P>
+
+iTerm などの文字端末で動作する Web ブラウザ lynx を使ってみなさい。
+
+<PRE class="interaction" lang="en">$ <STRONG>lynx -display_charset=utf-8  <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>lynx -display_charset=utf-8 http://www.coins.tsukuba.ac.jp/ <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>lynx -display_charset=utf-8 http://localhost:1231/index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+<A HREF="http://lynx.invisible-island.net/"><CODE lang="en">http://lynx.invisible-island.net/</CODE></A> 参照。
+
+
+</P>
+
+
+
+
+<HR>
+Last updated: 2026/07/14 12:45:39
+ <BR>
+<ADDRESS> <A HREF="https://www.cs.tsukuba.ac.jp/~yas/">Yasushi Shinjo</A> / &lt;yas@cs.tsukuba.ac.jp&gt; </ADDRESS>
+</BODY>
+</HTML>
+

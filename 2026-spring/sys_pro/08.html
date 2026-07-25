@@ -1,0 +1,1472 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+																						
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="content-type" CONTENT="text/html;charset=iso-2022-jp">
+<TITLE> システムプログラム（第8回）: ネットワーク・プログラミング／サーバ側(2)
+</TITLE>
+<STYLE TYPE="text/css"><!--
+
+@import url("../coins-syspro-2026.css");
+
+--></STYLE>
+</HEAD>
+
+<BODY>
+
+<H1>システムプログラム（第8回）: ネットワーク・プログラミング／サーバ側(2) </H1>
+<PRE>
+                                       筑波大学 システム情報系 情報工学域
+                                       <A HREF="https://www.cs.tsukuba.ac.jp/~yas/">新城 靖</A>
+                                       &lt;yas@cs.tsukuba.ac.jp&gt;
+</PRE>
+<P>
+このページは、次の URL にあります。<BR>
+<CODE>	<A HREF="https://www.coins.tsukuba.ac.jp/~syspro/2026/2026-07-22">https://www.coins.tsukuba.ac.jp/~syspro/2026/2026-07-22</A></CODE><BR>
+あるいは、次のページから手繰っていくこともできます。<BR>
+<CODE>	<A HREF="https://www.coins.tsukuba.ac.jp/~syspro/2026/">https://www.coins.tsukuba.ac.jp/~syspro/2026/</A></CODE><BR>
+<CODE>	<A HREF="http://www.coins.tsukuba.ac.jp/~yas/">http://www.coins.tsukuba.ac.jp/~yas/</A></CODE><BR>
+
+
+
+
+<H3 id="supplement">捕捉</H3>
+
+
+
+<H4><A id="data-structures-algorithms">データ構造とアルゴリズム</A></H4>
+
+データ構造とアルゴリズムは相似。
+
+<UL>
+
+<LI> データ構造が繰り返し(配列やリスト)なら、アルゴリズムは、ループ
+
+<LI> データ構造が構造体(フィールドA,B,C...並び)なら、アルゴリズムは、手
+続きの並びの並び(Aを処理する手続き、Bを処理する手続き、Cを処理する手続
+き、...)
+
+<LI> データ構造が、木構造なら、アルゴリズムは、再帰
+
+</UL>
+
+HTTP のメッセージの構造は、トップレベルでは構造体。構造体を処理するよう
+に手続きを並べたい。
+
+<UL>
+<LI> ヘッダ
+<UL>
+<LI> 1行目は、status line | request line
+<LI> 0行以上のオプション
+</UL>
+<LI> 空行
+<LI> (内容)
+</UL>
+
+ヘッダの「行」は、「文字の繰り返し+行末\r\n」。
+「文字繰り返し」の処理は、ループであるが、
+実際には、次のように「行」単位で処理ができる関数を呼べば良い。
+
+<UL>
+
+<LI> fgets(), fprintf(), 
+
+</UL>
+
+「行」単位の処理の関数の内部には、ループが1個含まれる。
+
+</P><P>
+
+HTTP の内容(content)は、バイトの並び。バイト単位のループでもプログラムは書けるが、
+遅いので、ある程度の大きさの塊(buffer size単位)で処理するのが普通。
+テキストだけ扱うならば、行の並びと仮定しても問題ない。
+
+</P><P>
+
+生成AIは、データ構造とアルゴリズムの相似を無視して、次のような酷いコー
+ドを生成することがある。人間は、真似しないように。
+
+<PRE class="program">
+    read(socket&#44; buffer&#44; BUFFER_SIZE - 1);
+    request_line = strtok(buffer&#44; "\r\n");
+    strtok(request_line&#44; " ");
+    file_name = strtok(NULL&#44; " ");
+</PRE>
+
+
+<H4><A id="network-programming-difficulty">ネットワーク・プログラミングの難しさ</A></H4>
+
+ネットワークを超えて送られてくるデータは、（意図的に）間違っていることが
+ある。
+
+<UL>
+<LI> 2年生までのプログラミング: 正しい入力が与えられた時に正しく動く。
+<LI> 3年生からのプログラミング: 間違った入力が与えられた時にも破綻しない。
+(間違った入力から正しい動作は不可能。)
+</UL>
+
+<H4><A id="memory-leak-patterns">メモリ・リーク・パタン</A></H4>
+
+以下のプログラムは、間違い。真似しないように。
+
+<PRE class="program">
+http_receive_request( FILE *in&#44; char *filename&#44; size_t size )
+{
+    char *buf;
+        buf = malloc( BUFSIZE );
+	...
+	/* free(buf) がない */
+	return( 1 ); 
+}
+</PRE>
+
+<PRE class="program">
+http_receive_request( FILE *in&#44; char *filename&#44; size_t size )
+{
+    char *buf;
+        buf = malloc( BUFSIZE );
+	...
+	if( ... ) {
+	    ...
+	    /* free(buf) がない */
+	    return( 0 );
+	}
+	...
+	free( buf );
+	return( 1 ); 
+}
+</PRE>
+
+<PRE class="program">
+http_receive_request( FILE *in&#44; char *filename&#44; size_t size )
+{
+    int count;
+    char **vec;
+	....    
+        string_split(requestline&#44;' '&#44;&amp;count&#44;&amp;vec); /* 内部で malloc() を呼んでいる */
+	...
+	if( ... ) {
+	    ...
+	    /* free_string_vector(count&#44;vec) がない */
+	    return( 0 );
+	}
+	...
+	free_string_vector( count&#44;vec ); /* 内部で free() を呼んでいる */
+	return( 1 ); 
+</PRE>
+
+<PRE class="program">
+http_send_reply( FILE *out&#44; char *filename )
+{
+    FILE *f;
+        f = fopen(...);
+	...
+	/* fclose( f ) がない */
+	return;
+}
+</PRE>
+
+<PRE class="program">
+http_send_reply( FILE *out&#44; char *filename )
+{
+    FILE *f;
+        f = fopen(...);
+	...
+	if( ... ) {
+	    ...
+	    /* fclose( f ) がない */
+	    return( 0 );
+	}
+	...
+	fclose( f );
+	return;
+}
+</PRE>
+
+以上のプログラムは、間違い。真似しないように。
+
+<H4><A id="auto-variable">auto変数</A></H4>
+
+mallc(), free() をしなくても OK。
+
+<PRE class="program">
+http_send_reply( FILE *out&#44; char *filename )
+{
+    auto char buf[BUFSIZE];
+        ...
+	return;
+}
+</PRE>
+
+auto と書かなくても OK 。
+
+<PRE class="program">
+http_send_reply( FILE *out&#44; char *filename )
+{
+    char buf[BUFSIZE];
+        ...
+	return; 
+}
+</PRE>
+
+<H4><A id="c-lang-ptr">C言語のポインタ</A></H4>
+
+マニュアルには、ポインタが良く出る。
+
+<PRE class="manual">
+FREAD(3)                 BSD Library Functions Manual                 FREAD(3)
+NAME
+     fread&#44; fwrite -- binary stream input/output
+LIBRARY
+     Standard C Library (libc&#44; -lc)
+
+SYNOPSIS
+     #include &lt;stdio.h&gt;
+     size_t
+     fread(void *restrict ptr&#44; size_t size&#44; size_t nitems&#44;
+         FILE *restrict stream);
+</PRE>
+
+型を合わせるために、ポインタ変数を使わなくてもよい。
+
+<PRE class="program">
+    char *buf;
+        buf = malloc( BUFSIZE );
+	...
+	fread( buf&#44; 1&#44; BUFSIZE&#44; in );
+</PRE>
+
+以下でも OK。C言語で配列変数の名前を書くと、先頭要素のポインタの意味に
+なる。
+
+<PRE class="program">
+    char buf[BUFSIZE];
+    	...
+	fread( buf&#44; 1&#44; BUFSIZE&#44; in );
+</PRE>
+
+以下でも同じ。
+
+<PRE class="program">
+    char buf[BUFSIZE];
+    	...
+	fread( &amp;buf[0]&#44; 1&#44; BUFSIZE&#44; in );
+</PRE>
+
+<PRE class="program">
+    char buf[BUFSIZE];
+    	...
+	fread( &amp;buf&#44; 1&#44; BUFSIZE&#44; in ); /* 普通は使わない。*/
+</PRE>
+
+C言語では、関数から直接 return できる値は 1 つだけ。複数の値を返すため
+に、引数にポインタを使う方法がよく使われる。
+
+<PRE class="manual">
+int fstat(int fd&#44; struct stat *statbuf);
+pid_t wait(int *wstatus);
+long int strtol(char *nptr&#44; char **endptr&#44; int base);
+int  string_split( char *str&#44; char del&#44; int *countp&#44; char ***vecp  );
+int  fdopen_sock( int sock&#44; FILE **inp&#44; FILE **outp );
+</PRE>
+
+呼び出す時には、結果を受けとるためにポインタではない変数を用意して、
+&amp; を使うのが普通。
+
+<PRE class="program">
+struct stat fs;
+if (fstat(fd&#44; &amp;fs) &lt; 0) ...
+
+int status;
+if (wait(&amp;status) &lt; 0) ...
+
+int portno; char *s&#44; *p;
+portno = strtol( s&#44; &amp;p&#44; 10 );
+portno = strtol( s&#44; 0&#44;  10 ); /* endptr が不用な時 */
+
+int count; char **vec;
+if( string_split( str&#44; c&#44; &amp;count&#44; &amp;vec ) &lt; 0 ) ...
+
+FILE *in&#44; *out ;
+if( fdopen_sock(com&#44;&amp;in&#44;&amp;out) &lt; 0 ) ...
+</PRE>
+
+<H4><A id="snprintf-size">snprintf()のsize</A></H4>
+
+<PRE class="table">
+int snprintf(char * restrict str&#44; size_t size&#44; 
+         const char * restrict format&#44; ...);
+</PRE>
+
+正解。第2引数に、第1引数のサイズを入れる。
+<PRE class="program">
+    char buf[BUFSIZE];
+	 snprintf( buf&#44; BUFSIZE&#44; "%s"&#44; s );
+</PRE>
+
+<PRE class="program">
+    char *buf;
+         buf = malloc( BUFSIZE );
+	 snprintf( buf&#44; BUFSIZE&#44; "%s"&#44; s );
+</PRE>
+
+間違い。第2引数に、入力データの長さを入れる。
+入力が大きければ、バッファ・オーバーフローが生じる。
+<PRE class="program">
+    char buf[BUFSIZE];
+	 snprintf( buf&#44; strlen(s)&#44; "%s"&#44; s );
+</PRE>
+
+size に入力から計算した値を入れてはいけ
+ない。
+
+strlcpy(), strlcat() でも同様。
+
+<PRE class="table">
+size_t strlcpy(char *dst&#44; const char *src&#44; size_t size);
+size_t strlcat(char *dst&#44; const char *src&#44; size_t size);
+</PRE>
+
+<H4><A id="sizeof-buf-ptr">sizeof()の使い方、配列とポインタの違い</A></H4>
+
+正解1。
+<PRE class="program">
+    char buf[BUFSIZE];
+	 snprintf( buf&#44; BUFSIZE&#44; "%s"&#44; s );
+</PRE>
+
+正解2。
+<PRE class="program">
+    char buf[BUFSIZE];
+	 snprintf( buf&#44; sizeof(buf)&#44; "%s"&#44; s );
+</PRE>
+
+正解3。
+<PRE class="program">
+    char *buf;
+         buf = malloc( BUFSIZE );
+	 snprintf( buf&#44; BUFSIZE&#44; "%s"&#44; s );
+</PRE>
+
+
+以下は間違い。
+<PRE class="program">
+    char *buf;
+         buf = malloc( BUFSIZE );
+	 snprintf( buf&#44; sizeof(buf)&#44; "%s"&#44; s );
+</PRE>
+
+sizeof(buf) は、ポインタ変数のサイズ sizeof(char *) を返す。
+
+<A HREF="../2026-06-03/index.html#sec:strings-library">文字操作，文字列操作ライブラリ</A>参照。
+<CODE lang="en">~yas/syspro/cc/sizeof.c</CODE> を実行して、予想通りの結果が表示されるか確認しなさい。
+
+
+<H4><A id="markdown-philosophy">Markdownの思想</A></H4>
+
+Markdown とは
+
+<UL>
+<LI> マークアップ言語の一種
+
+<LI> プレーンテキストでも文書の構造(見出し、箇条書き、パラグラフの区切
+り、コードのブロック)が簡単に分かるようにしたもの
+
+<LI> LaTeX や HTML とは異なり、<STRONG>フォーマッタを使わなくて</STRONG>もわかり
+やすく表示できるようにする。
+
+<UL>
+
+<LI> 1 行文字数を、文字端末に入るくらいに折り返す。
+
+Emacs なら fill-paragraph (M-q, Esc q) 、
+Visual Studio Code なら
+<A HREF="https://marketplace.visualstudio.com/items?itemName=stkb.rewrap">Rewrap</A>
+を入れて、Alt+Q を使う。
+
+<LI> パラグラフとパラグラフの切れ目は、空行を１つだけ入れる。
+
+<LI> 凝ったことはやらない。
+
+</UL>
+
+</UL>
+
+「システムプログラム」のレポートは、Markdown ではなくて、折り返された
+プレーンテキストを想定している。
+その方がコメントを書きやすい。
+
+</P><P>
+
+どうしても、Markdown を使いたければ、本来の Markdown の思想に照らして、
+フォーマッタなしでも採点者が見やすいように、折り返す等して工夫すること。
+
+
+
+<H3 id="today">今日の重要な話</H3>
+
+TCP/IP によるネットワーク・プログラミング
+
+<UL>
+<LI> exec を伴わない fork() による並行プログラミング
+</UL>
+
+
+<H3 id="review">復習</H3>
+
+<UL>
+<LI> <A HREF="../2026-06-17/index.html#sec:process-handling">fork() (この授業の前半)</A>
+<LI> <A HREF="../2026-07-08/index.html#tcpip">TCP/IPの基本的な考え方</A>
+<LI> <A HREF="../2026-07-08/index.html#tcpip-connection-establish">通信路の開設</A>
+<LI> <A HREF="../2026-07-08/index.html#echo-client">echo サービスのクライアント(TCP/IP)</A>
+<LI> <A HREF="../2026-07-15/index.html#echo-server">echo サービスのサーバ(TCP/IP)</A>
+</UL>
+
+
+<H2 id="multiple-client">複数のクライアントに対するサービスの同時提供</H2>
+
+複数のクライアントに対してサービスの同時に提供することが望ましい。
+
+<H4><A id="echo-server-nofork-fdopen-telnet">echo-server-nofork-fdopenへの複数のクライアントの接続</A></H4>
+
+
+<A HREF="../2026-07-15/index.html#echo-server-nofork-fdopen.c">echo-server-nofork-fdopen.c</A> 
+は、１つのクライアントからの接続されると、そのクライアントに掛り切りに
+なって、他のクライアントにはサービスを提供できないという問題がある。
+
+</P><P>
+
+サーバ側
+
+<PRE class="interaction" lang="en">
+$ <STRONG>cp ~yas/syspro/ipc/echo-server-nofork-fdopen.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>cp ~/syspro/ipc/coins-syspro.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>make echo-server-nofork-fdopen <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+cc     echo-server-nofork-fdopen.c   -o echo-server-nofork-fdopen
+$ <STRONG>./echo-server-nofork-fdopen  <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Usage: ./echo-server-nofork-fdopen portno {ipversion}
+$ <STRONG>./echo-server-nofork-fdopen 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+run telnet azalea16 1231
+[::]:1231
+[245565] accepting incoming connections (acc==3) ...
+[245565] connection (fd==4) from [2001:2f8:3a:1711::231:13]:42192
+[245565] received (fd==4) 5 bytes, [012
+]
+<STRONG>^C</STRONG>
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+クライアント側（その１）。
+<PRE class="interaction" lang="en">$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::230:30...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+<STRONG>012</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+012
+<IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+クライアント側（その２）。
+<PRE class="interaction" lang="en">$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::230:30...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+<STRONG>abc</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+<IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+クライアント（その２）は、クライアント（その１）が終了するまでサービス
+を受けられない。
+
+</P><P>
+
+<H4><A id="std-echo-server-telnet">標準のechoサーバへの複数のクライアントの接続</A></H4>
+
+
+標準の echo サーバ(ポート番号 7 で動作している) は、複数のクライアント
+から接続されれた場合、同時にサービスを提供することができる。
+
+</P><P>
+
+クライアント側（その１）。
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 7 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::230:30...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+<STRONG>012</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+012
+<IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+クライアント側（その２）。
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 7 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::230:30...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+<STRONG>abc</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+abc
+<IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+<H3 id="multiple-client-methods">複数のクライアントを同時に扱う方法</H3>
+
+複数のクライアントに対してサービスの同時に提供するには次のような方法が
+ある。
+
+<UL>
+<LI> クライアントごとに fork() でプロセスをコピーする。
+<LI> クライアントごとに スレッドを生成する。
+<LI> select() を用いて、複数の接続を監視し、データが届いたことを確認し
+てから読み込む。
+</UL>
+
+スレッドのプログラミングは非常に難しい。
+<A HREF="http://www.cs.tsukuba.ac.jp/~yas/cs/csys-2025/">大学院の授業「並行システム」
+</A>等で扱う。
+
+
+<H2 id="fork">fork()</H2>
+
+fork() は、親プロセスをコピーすることにより、子プロセスを作成するシステ
+ム・コールである。
+<A HREF="../2026-06-17/index.html#sec:process-handling">前半</A>では、exec とともに
+使う例を示した。
+
+ネットワーク・プログラミングでは、exec を伴わない fork() が使われる
+ことがある。
+
+<H3 id="fork-3">3回forkするプログラム</H3>
+
+このプログラムは、表面的には 3 回 fork() して画面に hello　と表示するプ
+ログラムである。
+
+<PRE class="program">
+   1:	/*
+   2:	  fork-hello.c -- 画面に文字列を表示するプログラム
+   3:	  ~yas/syspro/proc/fork-hello.c
+   4:	  Start: 2001/05/13 23:19:01
+   5:	*/
+   6:	
+   7:	#include &lt;stdio.h&gt;
+   8:	#include &lt;unistd.h&gt; /* fork() */
+   9:	
+  10:	int
+  11:	main()
+  12:	{
+  13:	        fork();
+  14:	        fork();
+  15:	        fork();
+  16:	        printf("hello\n");
+  17:	}
+</PRE>
+
+実行すると、画面には 8 回 hello と表示される。
+
+<PRE class="interaction" lang="en">
+ $ <STRONG>ls fork-hello.c</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+ $ ls: fork-hello.c: No such file or directory
+ $ <STRONG>cp ~yas/syspro/proc/fork-hello.c .</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+ $ <STRONG>make fork-hello</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+ cc     fork-hello.c   -o fork-hello
+ $ <STRONG>./fork-hello</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+ hello
+ hello
+ hello
+ hello
+ $ hello
+ hello
+ hello
+ hello
+ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+プロセスは、1回のfork() で、2倍に増える。3回のforkで、2 <sup>3</sup> 個
+に増える。親子関係は複雑。
+
+
+<P id="Figure:fork-fork-fork.png"><IMG SRC="images/fork-fork-fork.png"
+width=440
+     ALT="fork-fork-forkの親子関係">
+<BR>
+<BR>
+<STRONG>図?　fork()システム・コールによるプロセスのコピー</STRONG></P>
+
+
+
+
+<H2 id="echo-server-fork-fdopen.c">echo-server-fork-fdopen.c</H2>
+
+TCP/IP のポート番号 7 (echo) では、受け取ったデータをそのまま返すサー
+ビスを提供している。以下は、これと同じような機能を提供するサーバである。
+複数の接続先（クライアント）の要求を同時に処理するために、クライアント
+ごとに fork() システム・コールで専用の子プロセスを作る。
+
+
+<H4><A id="main">echo-server-fork-fdopen.c のmain()</A></H4>
+
+[<A HREF="echo-server-fork-fdopen.c"><CODE lang="en">echo-server-fork-fdopen.c</CODE></A>][<A HREF="coins-syspro.c"><CODE lang="en">coins-syspro.c</CODE></A>]
+
+</P><P>
+<PRE class="program">
+   1:	
+   2:	/*
+   3:	  echo-server-fork-fdopen.c -- 受け取った文字列をそのまま返すサーバ(fork版)
+   4:	  ~yas/syspro/ipc/echo-server-fork-fdopen.c
+   5:	*/
+   6:	
+   7:	#include &lt;sys/types.h&gt;          /* wait4() */
+   8:	#include &lt;sys/time.h&gt;           /* wait4() */
+   9:	#include &lt;sys/resource.h&gt;       /* wait4() */
+  10:	#include &lt;sys/wait.h&gt;           /* wait4() */
+  11:	
+  12:	#include "coins-syspro.c"
+  13:	
+  14:	extern  void echo_server( int portno&#44; int ip_version );
+  15:	extern  void echo_receive_request_and_send_reply( int com );
+  16:	extern  int  echo_receive_request( char *line&#44; size_t size&#44; FILE *in );
+  17:	extern  void echo_send_reply( char *line&#44; FILE *out );
+  18:	extern  void delete_zombie();
+  19:	
+  20:	int
+  21:	main( int argc&#44; char *argv[] )
+  22:	{
+  23:	        int portno&#44; ip_version;
+  24:	
+  25:	        if( !(argc == 2 || argc==3) ) {
+  26:	                fprintf(stderr&#44;"Usage: %s portno {ipversion}\n"&#44;argv[0] );
+  27:	                exit( 1 );
+  28:	        }
+  29:	        portno = strtol( argv[1]&#44;0&#44;10 );
+  30:	        if( argc == 3 )
+  31:	                ip_version = strtol( argv[2]&#44;0&#44;10 );
+  32:	        else
+  33:	                ip_version = 46; /* Both IPv4 and IPv6 by default */
+  34:	        echo_server( portno&#44; ip_version );
+  35:	}
+  36:	
+</PRE>
+
+main() は、
+<A HREF="../2026-07-15/index.html#echo-server-nofork-fdopen.c">echo-server-nofork-fdopen.c</A>
+と同じである。
+
+<H4><A id="echo_server">echo-server-fork-fdopen.c のecho_server()</A></H4>
+
+echo_server() は、echoサーバのメインループである。
+
+<PRE class="program">
+  46:	void
+  47:	echo_server( int portno&#44; int ip_version )
+  48:	{
+  49:	        int acc&#44;com ;
+  50:	        pid_t child_pid ;
+  51:	
+  52:	        acc = tcp_acc_port( portno&#44; ip_version );
+  53:	        if( acc&lt;0 )
+  54:	                exit( 1 );
+  55:	        print_my_host_port( portno );
+  56:	        tcp_sockaddr_print( acc );
+  57:	        while( 1 )
+  58:	        {
+  59:	                delete_zombie();
+  60:	                printf("[%d] accepting incoming connections (acc==%d) ...\n"&#44;
+  61:	                       getpid()&#44;acc );
+  62:	                if( (com = accept( acc&#44;0&#44;0 )) &lt; 0 )
+  63:	                {
+  64:	                        perror("accept");
+  65:	                        exit( -1 );
+  66:	                }
+  67:	                tcp_peeraddr_print( com );
+  68:	                if( (child_pid=fork()) &gt; 0 ) /* parent */
+  69:	                {
+  70:	                        close( com );
+  71:	                }
+  72:	                else if( child_pid == 0 ) /* child */
+  73:	                {
+  74:	                        close( acc );
+  75:	                        echo_receive_request_and_send_reply( com );
+  76:	                        exit( 0 );
+  77:	                }
+  78:	                else
+  79:	                {
+  80:	                        perror("fork");
+  81:	                        exit( -1 );
+  82:	                }  
+  83:	        }
+  84:	}
+  85:	
+</PRE>
+
+</P><P>
+
+delete_zombie() は、ゾンビ・プロセス（後述）を消去するものである。
+（改善の余地がある。）
+
+echo サービスとしての処理は、fork() システムコールで分身を作り、子プロ
+セス側で行う。子プロセスで呼び出す
+echo_receive_request_and_send_reply() は、
+<A HREF="../2026-07-15/index.html#echo-server">echo-server-nofork-fdopen.c</A>の
+<A HREF="../2026-07-15/index.html#echo_receive_request_and_send_reply">echo_receive_request_and_send_reply()</A>
+とまったく同じである。
+
+親プロセスは、すぐにaccept() に戻る。
+
+</P><P>
+
+親プロセスは、次の処理を繰り返す。
+
+<UL>
+<LI> delete_zombie()
+<LI> com = accept( acc,0,0 )
+<LI> fork()
+<LI> close(com)
+</UL>
+
+子プロセスは、次の処理をして終了する。
+<UL>
+<LI> (fork())
+<LI> close(acc)
+<LI> echo_receive_request_and_send_reply( com )
+<LI> exit(0)
+</UL>
+
+</P><P>
+
+getpid() は、自分自身の PID (Process ID (identifier)) を返すシステムコー
+ルである。PID (pid_t) は、32 ビット(システムによっては16ビット)の整数
+である。<A HREF="#echo-server-fork-result">実行結果</A>で
+printf() の表示に、PID が表示されているが、同じではないことに
+注意しなさい。
+
+</P><P>
+
+<H3 id="delete_zombie">echo-server-fork-fdopen.c のdelete_zombie()</H3>
+
+<H4><A id="zombie-process">ゾンビ・プロセス</A></H4>
+
+Unix 系のOSで、プロセスは、exit すると、(一瞬)「必ず」ゾンビ・プロセスになる。
+ゾンビ・プロセスは、プロセス終了時の最後の一言(exit(n)のn等)を保持している。
+これは、wait4(), wait3(), waitpid システムコールの wstatus で取得できる。
+(下の例では、0 を指定して捨てている。)
+親プロセスが wait すると、ゾンビ・プロセッサは、消える。
+
+</P><P>
+
+ゾンビ・プロセスも、ps コマンドで表示される。オペレーティング・システム
+のカーネルにあるプロセスの一覧表のエントリを消費している。
+
+</P><P>
+
+exec を伴う fork() では、wait するのが普通なので、ゾンビ・プロセスがす
+ぐに消える。シェルから実行されたプロセスは、シェルがすぐに wait して消
+す。
+
+</P><P>
+
+インターネットのサーバの場合、いちいち wait したくないことが普通(個々の
+クライアントで独立して動きたい)。しかし、wait しないと、ゾンビ・プロセ
+スが溜まっていく一方になるので工夫して wait する。wait を怠れば、ゾンビ・
+プロセスが溢れて、そのうちにプロセスが作れなくなる(fork() 失敗して、-1
+を返すようになる。)
+
+</P><P>
+
+親が先に死ぬと、親プロセスは、PID 1 になる。
+PID 1 のプロセスは、wait してゾンビを削除する。
+
+
+<H4><A id="delete_zombie">echo-server-fork-fdopen.c のdelete_zombie()</A></H4>
+
+delete_zombie() は、ゾンビ・プロセス(終了した子プロセスの残骸)を回収する関数である。
+
+<PRE class="program">
+  86:	void
+  87:	delete_zombie()
+  88:	{
+  89:	        pid_t pid ;
+  90:	
+  91:	        while( (pid=wait4(-1&#44;0&#44;WNOHANG&#44;0)) &gt;0 )
+  92:	        {
+  93:	                printf("[%d] zombi %d deleted.\n"&#44;getpid()&#44;pid );
+  94:	                continue;
+  95:	        }
+  96:	}
+  97:	
+</PRE>
+
+wait4() システムコールを使って、終了した子プロセスをwait してあげてい
+る。ただし、WNOHANG オプションを付けてあるので、終了した子プロセスがい
+なければ、待たずに返ってくる。
+
+</P><P>
+
+<H4><A id="echo_reply">echo-server-fork-fdopen.c のその他の関数</A></H4>
+
+他の関数は、
+<A HREF="../2026-07-15/index.html#echo-server-nofork-fdopen.c">echo-server-nofork-fdopen.c</A>
+と同じである。
+
+次のように diff コマンドで調べると、ほとんど違いがないことがわかる。
+diff コマンドの結果、「<CODE lang="en">+</CODE>」は、追加された行、
+「<CODE lang="en">-</CODE>」は、削除された行、
+「<CODE lang="en">!</CODE>」は、修正された行を意味する。
+
+</P><P>
+
+<PRE class="program">
+ $ diff -c echo-server-nofork-fdopen.c echo-server-fork-fdopen.c
+ *** echo-server-nofork-fdopen.c	2026-07-02 13:39:06.248757288 +0900
+ --- echo-server-fork-fdopen.c	2026-07-02 13:41:20.659949726 +0900
+ ***************
+ *** 1&#44;15 ****
+
+   /*
+ !   echo-server-nofork-fdopen.c -- 受け取った文字列をそのまま返すサーバ(fork無し版)
+ !   ~yas/syspro/ipc/echo-server-nofork-fdopen.c
+   */
+
+   #include "coins-syspro.c"
+
+   extern	void echo_server( int portno&#44; int ip_version );
+   extern	void echo_receive_request_and_send_reply( int com );
+   extern  int  echo_receive_request( char *line&#44; size_t size&#44; FILE *in );
+   extern	void echo_send_reply( char *line&#44; FILE *out );
+
+   int
+   main( int argc&#44; char *argv[] )
+ --- 1&#44;21 ----
+
+   /*
+ !   echo-server-fork-fdopen.c -- 受け取った文字列をそのまま返すサーバ(fork版)
+ !   ~yas/syspro/ipc/echo-server-fork-fdopen.c
+   */
+
+ + #include &lt;sys/types.h&gt;		/* wait4() */
+ + #include &lt;sys/time.h&gt;		/* wait4() */
+ + #include &lt;sys/resource.h&gt;	/* wait4() */
+ + #include &lt;sys/wait.h&gt;		/* wait4() */
+ +
+   #include "coins-syspro.c"
+
+   extern	void echo_server( int portno&#44; int ip_version );
+   extern	void echo_receive_request_and_send_reply( int com );
+   extern  int  echo_receive_request( char *line&#44; size_t size&#44; FILE *in );
+   extern	void echo_send_reply( char *line&#44; FILE *out );
+ + extern	void delete_zombie();
+
+   int
+   main( int argc&#44; char *argv[] )
+ ***************
+ *** 32&#44;37 ****
+ --- 38&#44;44 ----
+   echo_server( int portno&#44; int ip_version )
+   {
+	 int acc&#44;com ;
+ + 	pid_t child_pid ;
+
+	 acc = tcp_acc_port( portno&#44; ip_version );
+	 if( acc&lt;0 )
+ ***************
+ *** 40&#44;45 ****
+ --- 47&#44;53 ----
+	 tcp_sockaddr_print( acc );
+	 while( 1 )
+	 {
+ + 		delete_zombie();
+		 printf("[%d] accepting incoming connections (acc==%d) ...\n"&#44;
+			getpid()&#44;acc );
+		 if( (com = accept( acc&#44;0&#44;0 )) &lt; 0 )
+ ***************
+ *** 49&#44;55 ****
+		 }
+		 printf("[%d] connection (fd==%d) from "&#44;getpid()&#44;com );
+		 tcp_peeraddr_print( com );
+ ! 		echo_receive_request_and_send_reply( com );
+	 }
+   }
+
+ --- 57&#44;89 ----
+		 }
+		 printf("[%d] connection (fd==%d) from "&#44;getpid()&#44;com );
+		 tcp_peeraddr_print( com );
+ ! 		if( (child_pid=fork()) &gt; 0 ) /* parent */
+ ! 		{
+ ! 			close( com );
+ ! 		}
+ ! 		else if( child_pid == 0 ) /* child */
+ ! 		{
+ ! 			close( acc );
+ ! 			echo_receive_request_and_send_reply( com );
+ ! 			exit( 0 );
+ ! 		}
+ ! 		else
+ ! 		{
+ ! 			perror("fork");
+ ! 			exit( -1 );
+ ! 		}
+ ! 	}
+ ! }
+ !
+ ! void
+ ! delete_zombie()
+ ! {
+ ! 	pid_t pid ;
+ !
+ ! 	while( (pid=wait4(-1&#44;0&#44;WNOHANG&#44;0)) &gt;0 )
+ ! 	{
+ ! 		printf("[%d] zombi %d deleted.\n"&#44;getpid()&#44;pid );
+ ! 		continue;
+	 }
+   }
+
+ $ &lt;IMG SRC="../icons/screen-cursor.gif" ALT="[]"&gt;
+</PRE>
+
+</P><P>
+
+<H4><A id="echo-server-fork-fdopen-run">echo-server-fork-fdopenの実行例</A></H4>
+
+</P><P>
+
+<A id="echo-server-fork-result">サーバ側。</A>
+
+サーバは、終了しないので、最後に、<KBD>^C</KBD> を押して、割り込みを掛け
+て終了させる。
+
+</P><P>
+注意：全員がポート番号 1231 を使うとプログラムが動かないことがある。
+</P><P>
+
+
+<PRE class="interaction" lang="en">
+$ <STRONG>ls echo-server-fork-fdopen.c <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+ls: echo-server-fork-fdopen.c: No such file or directory
+$ <STRONG>cp ~yas/syspro/ipc/echo-server-fork-fdopen.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>cp -i ~yas/syspro/ipc/coins-syspro.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>ls -l echo-server-fork-fdopen.c <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+-rw-r--r-- 1 yas 510 2724  7月  2 13:41 echo-server-fork-fdopen.c
+$ <STRONG>make echo-server-fork-fdopen <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+cc     echo-server-fork-fdopen.c   -o echo-server-fork-fdopen
+$ <STRONG>./echo-server-fork-fdopen <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Usage: ./echo-server-fork-fdopen portno {ipversion}
+$ <STRONG>./echo-server-fork-fdopen 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+run telnet azalea16 1231
+[::]:1231
+[3687520] accepting incoming connections (acc==3) ...
+[3687520] connection (fd==4) from [2001:2f8:3a:1711::231:15]:55224
+[3687520] accepting incoming connections (acc==3) ...
+[3688992] received (fd==4) 5 bytes, [012
+]
+[3687520] connection (fd==4) from [2001:2f8:3a:1711::231:14]:32824
+[3687520] accepting incoming connections (acc==3) ...
+[3689329] received (fd==4) 5 bytes, [abc
+]
+[3688992] received (fd==4) 5 bytes, [345
+]
+[3689329] received (fd==4) 5 bytes, [def
+]
+[3688992] received (fd==4) 5 bytes, [789
+]
+[3688992] connection (fd==4) closed.
+[3689329] connection (fd==4) closed.
+<IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+クライアント側（その１）。
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::231:16...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+<STRONG>012</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+012
+<STRONG>345</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+345
+<STRONG>^]</STRONG>
+<STRONG>789</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+789
+<STRONG>^]</STRONG>
+telnet> <STRONG>^D</STRONG>
+Connection closed.
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+クライアント側（その２）。
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::231:16...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+<STRONG>abc</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+abc
+<STRONG>def</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+def
+<STRONG>^]</STRONG>
+telnet> <STRONG>^D</STRONG>
+Connection closed.
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+<H3 id="echo-server-fork-fdopen-run">図解</H3>
+
+
+
+<P id="Figure:tcpip-server-fork-1"><IMG SRC="images/tcpip-server-fork-1.png"
+width=600
+     ALT="図１　サーバが accept() で接続要求を待っている">
+<BR>
+<BR>
+<STRONG>図１　サーバが accept() で接続要求を待っている</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-2"><IMG SRC="images/tcpip-server-fork-2.png"
+width=600
+     ALT="図２　サーバが accept()している時にクライアントが connect()した所">
+<BR>
+<BR>
+<STRONG>図２　サーバが accept()している時にクライアントが connect()した所</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-3"><IMG SRC="images/tcpip-server-fork-3.png"
+width=600
+     ALT="図３　accept() の結果、通信用ポート com が作られる">
+<BR>
+<BR>
+<STRONG>図３　accept() の結果、通信用ポート com が作られる</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-4"><IMG SRC="images/tcpip-server-fork-4.png"
+width=600
+     ALT="図４　fork() して、親子に別れる。">
+<BR>
+<BR>
+<STRONG>図４　fork() して、親子に別れる。</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-5"><IMG SRC="images/tcpip-server-fork-5.png"
+width=600
+     ALT="図５　親は、com を close()、子は acc を close() する">
+<BR>
+<BR>
+<STRONG>図５　親は、com を close()、子は acc を close() する</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-6"><IMG SRC="images/tcpip-server-fork-6.png"
+width=600
+     ALT="図６　親は、再び accept() で待ち、子は、特定のクライアントに対して read()/write() する。">
+<BR>
+<BR>
+<STRONG>図６　親は、再び accept() で待ち、子は、特定のクライアントに対して read()/write() する。</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-7"><IMG SRC="images/tcpip-server-fork-7.png"
+width=600
+     ALT="図７　サーバが別のクライアントから接続要求を受け付ける">
+<BR>
+<BR>
+<STRONG>図７　サーバが別のクライアントから接続要求を受け付ける</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-8"><IMG SRC="images/tcpip-server-fork-8.png"
+width=600
+     ALT="図８　accept() の結果、通信用ポート com が作られる">
+<BR>
+<BR>
+<STRONG>図８　accept() の結果、通信用ポート com が作られる</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-9"><IMG SRC="images/tcpip-server-fork-9.png"
+width=600
+     ALT="図９　fork() して、親子に別れる。">
+<BR>
+<BR>
+<STRONG>図９　fork() して、親子に別れる。</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-10"><IMG SRC="images/tcpip-server-fork-10.png"
+width=600
+     ALT="図１０　親は、com を close()、子は acc を close() する">
+<BR>
+<BR>
+<STRONG>図１０　親は、com を close()、子は acc を close() する</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-server-fork-11"><IMG SRC="images/tcpip-server-fork-11.png"
+width=600
+     ALT="図１１　親は、再び accept() で待ち、子は、特定のクライアントに対して read()/write() する。">
+<BR>
+<BR>
+<STRONG>図１１　親は、再び accept() で待ち、子は、特定のクライアントに対して read()/write() する。</STRONG></P>
+
+
+
+
+
+<H3 id="zombie">ゾンビ・プロセスの観察</H3>
+
+exit(2) システム・コールで終了したり、ソフトウェア割り込み(kill(2))で
+強制終了させれたプロセスは、親プロセスが wait() するまで、形だけのこっ
+ている。このようなプロセスは、ゾンビ（Zombie）と呼ばれる。
+
+</P><P>
+
+<PRE class="interaction" lang="en">$ <STRONG>./echo-server-fork-fdopen 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+run telnet azalea16 1231 
+[576556] accepting (fd==3) to [::]:1231
+[576556] accepting incoming connections (acc==3) ...
+[576556] connection (fd==4) from [2001:2f8:3a:1711::231:16]:40086
+[576556] accepting incoming connections (acc==3) ...
+[576786] received (fd==4) 5 bytes, [012
+]
+[576556] connection (fd==4) from [2001:2f8:3a:1711::231:16]:58222
+[576556] accepting incoming connections (acc==3) ...
+[577021] received (fd==4) 5 bytes, [abc
+]
+[576786] received (fd==4) 5 bytes, [345
+]
+[577021] received (fd==4) 5 bytes, [def
+]
+[576786] received (fd==4) 5 bytes, [789
+]
+[576786] connection (fd==4) closed.
+[577021] connection (fd==4) closed.
+<IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+ps コマンドで見ると、状態(STAT) がゾンビを意味する Z と表示される。
+
+</P><P>
+
+<PRE class="interaction" lang="en">$ <STRONG>ps l | grep echo <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+0  1013 3687520 3682841  20   0   2784  1852 inet_c S+   pts/3      0:00 ./echo-server-fork-fdopen 1231
+1  1013 3688992 3687520  20   0      0     0 -      Z+   pts/3      0:00 [echo-server-for] <defunct>
+1  1013 3689329 3687520  20   0      0     0 -      Z+   pts/3      0:00 [echo-server-for] <defunct>
+0  1013 3691407 3691037  20   0  11128  2592 pipe_r S+   pts/4      0:00 grep echo
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+<A HREF="#echo-server-fork-fdopen.c">echo-server-fork-fdopen.c</A> では、
+delete_zombie() でゾンビを消そうとはしている。しかし、accept() で止まっ
+ている状態なので、どこかのクライアントから接続要求が来ない限りは、
+delete_zombie() が呼ばれないので、ゾンビとして残っている。
+
+</P><P>
+
+この状態で接続要求が来ると、ゾンビが回収される。
+
+クライアント
+<PRE class="interaction" lang="en">$ <STRONG>telnet azalea16.coins.tsukuba.ac.jp 1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::231:16...
+Connected to azalea16.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+<IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+</P><P>
+サーバ側
+
+<PRE class="interaction" lang="en">[3687520] connection (fd==4) from [2001:2f8:3a:1711::231:14]:52562
+[3687520] zombi 3688992 deleted.
+[3687520] zombi 3689329 deleted.
+[3687520] accepting incoming connections (acc==3) ...
+<IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+ゾンビが回収された後の ps コマンドの結果:
+
+<PRE class="interaction" lang="en">$ <STRONG>ps l | grep echo <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+0  1013 3687520 3682841  20   0   2784  1852 inet_c S+   pts/3      0:00 ./echo-server-fork-fdopen 1231
+1  1013 3692659 3687520  20   0   2784   628 wait_w S+   pts/3      0:00 ./echo-server-fork-fdopen 1231
+0  1013 3693626 3691037  20   0  11128  2592 pipe_r S+   pts/4      0:00 grep echo
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+netstat コマンドや lsof コマンドも使えるようになりたい。
+
+<PRE class="interaction" lang="en">$ <STRONG>netstat -a | grep :1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+tcp6       0      0 [::]:1231               [::]:*                  LISTEN
+tcp6       0      0 azalea16.coins.tsu:1231 azalea14.coins.ts:52562 ESTABLISHED
+$ <STRONG>netstat -an | grep :1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+tcp6       0      0 :::1231                 :::*                    LISTEN
+tcp6       0      0 2001:2f8:3a:1711:::1231 2001:2f8:3a:1711::52562 ESTABLISHED
+$ <STRONG>lsof -i  | grep :1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+echo-serv 3687520  yas    3u  IPv6 17184032      0t0  TCP *:1231 (LISTEN)
+echo-serv 3692659  yas    3u  IPv6 17184752      0t0  TCP azalea16.coins.tsukuba.ac.jp:1231->azalea14.coins.tsukuba.ac.jp:52562 (ESTABLISHED)
+echo-serv 3692659  yas    4u  IPv6 17184752      0t0  TCP azalea16.coins.tsukuba.ac.jp:1231->azalea14.coins.tsukuba.ac.jp:52562 (ESTABLISHED)
+$ <STRONG>lsof -i -n -P  | grep :1231 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+echo-serv 3687520  yas    3u  IPv6 17184032      0t0  TCP *:1231 (LISTEN)
+echo-serv 3692659  yas    3u  IPv6 17184752      0t0  TCP [2001:2f8:3a:1711::231:16]:1231->[2001:2f8:3a:1711::231:14]:52562 (ESTABLISHED)
+echo-serv 3692659  yas    4u  IPv6 17184752      0t0  TCP [2001:2f8:3a:1711::231:16]:1231->[2001:2f8:3a:1711::231:14]:52562 (ESTABLISHED)
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+</P><P>
+
+<H2 id="echo-server-select"><A HREF="./echo-server-select.html">select()による複数のクライアントに対するサービスの同時提供</A></H2>
+
+
+
+<H2 id="exercise">練習問題</H2>
+
+
+<H3 id="exercise-801">練習問題(801) 複数のクライアントから要求を受け付けるHTTPサーバ</H3>
+
+
+
+
+
+<A HREF="../2026-07-15/index.html#exercise-708">練習問題(708)</A>
+
+で、複数のクライアントから同時に接続を受けるようにしなさい。
+
+ただしこの課題では、
+
+<A HREF="#echo-server-fork-fdopen.c">echo-server-fork-fdopen.c</A>
+
+の方法と同様にクライアントごとに fork() システム・コールでプロセスを生
+成する方法を使いなさい。スレッドを使ってはならない。
+
+
+</P><P>
+
+Firefox 等のブラウザで画像が表示できることを確認し、
+そのことをレポートに記載しなさい。スクリーンショットは不用である。
+
+</P><P>
+
+実行結果として、サーバ側で、複数同時に受け付けていることを示すログをつ
+けなさい。複数接続できることを確認するには、telnet のように遅いクライア
+ントを用いるとよい。単に Web ブラウザで複数のページを開けても、通信その
+ものは短時間で終わるので、複数接続できることの確認にはならない。
+
+</P><P>
+
+
+<H3 id="exercise-802">練習問題(802) 複数のクライアントから要求を受け付けるHTTPサーバ(最大クライアント数付き)</H3>
+
+<A HREF="#exercise-801">練習問題(801) </A> で、
+
+同時に扱えるクライアントの最大数を設定できるようにしなさい。た
+とえば最大２と設定した場合、２つの接続まで同時に処理を行うが、３つ目が
+来た場合、接続を切るか他の接続が閉じられるまで処理を遅延する。
+
+この課題では、
+
+<A HREF="#echo-server-fork-fdopen.c">echo-server-fork-fdopen.c</A>
+
+の方法と同様にクライアントごとに fork() システム・コールでプロセスを生
+成する方法を使いなさい。スレッドを使ってはならない。
+
+</P><P>
+
+注意: 上限を設定する目的は、攻撃等でサーバの CPU 時間が奪われることやプ
+ロセスが増えすぎることを防ぐことにある。プロセスの終了を busy wait で待っ
+てはならない。待つならば、accept() や wait() のように、CPU 時間を消費し
+ない形で待つようにしなさい。
+
+</P><P>
+
+ヒント: 最大数まで fork() したら、accept() をやめて
+wait して子プロセスを待つ方法が考えられる。
+
+</P><P>
+
+<A HREF="../2026-07-15/index.html#exercise-708">練習問題(708)</A>
+
+と同様に、Firefox 等のブラウザで画像が表示できることを確認し、
+そのことをレポートに記載しなさい。スクリーンショットは不用である。
+
+
+<H3 id="exercise-803">練習問題(803) Keep Alive 対応の HTTPサーバ</H3>
+
+<A HREF="#exercise-801">練習問題(801) </A> で
+HTTP の <CODE lang="en">Keep-Alive</CODE> に対応しなさい。
+
+
+<H3 id="exercise-804">練習問題(804) ゾンビの即座な回収</H3>
+
+
+
+<A HREF="#echo-server-fork-fdopen.c">echo-server-fork-fdopen.c</A>
+では、accept() している途中で、子プロセスが終了するとゾンビになってし
+まう。子プロセスが終了したら直ちにゾンビを回収するようにしなさい。
+
+</P><P>
+
+ヒント：子プロセスの終了を、
+
+<A HREF="../2026-06-24/index.html">シグナル</A>
+
+SIGCHLD で知る方法もある。複数の子プロセスが終了しても、シグナルは１回
+しか送られないことがあることに注意しなさい。
+
+</P><P>
+
+シグナルを使うと、accept() システムコールがエラーで戻って来るシステムも
+ある。その場合、エラー番号が EINTR なら単純に終了しないで、再び
+accept() に向うべきである。
+
+</P><P>
+
+<H3 id="exercise-805">練習問題(805) ゾンビの即座な回収ができる HTTPサーバ</H3>
+
+<A HREF="#exercise-801">練習問題(801) </A> で、
+<A HREF="#exercise-804">練習問題(804) </A>と同様に
+シグナルを使って即座にゾンビを回収するようにしなさい。
+
+</P><P>
+
+この課題では、複数のクライアントに対するサービスの同時提供を実現するた
+めに、fork() を使いなさい。select() や Pthread を用いてはならない。
+
+</P><P>
+
+<H3 id="exercise-806">練習問題(806) 安全にIPv4とIPv6の両方に対応可能なechoサーバ</H3>
+
+<A HREF="#echo-server-fork-fdopen.c">echo-server-fork-fdopen.c</A>
+
+
+は、IPv4 と IPv6 の両方にサービスを提供できるが、
+IPV6_V6ONLY オプションを設定していないので、
+<A HREF="../2026-07-15/echo-server-nofork-fdopen.html#ipv4-mapped-address">意図せずIPv4からの接続を許してしまうことがある。</A>
+
+IPV6_V6ONLY を利用しながら、IPv4 と IPv6 の両方に対応するように変更しなさい。
+
+</P><P>
+
+ヒント: IPv4 と IPv6 専用のプロセスやスレッドを作成する。
+
+<H3 id="exercise-807">練習問題(807) IPv4とIPv6の両方に対応可能なechoサーバ(select)</H3>
+
+<A HREF="./echo-server-select.html">echo-server-select.c</A>
+
+は、IPv4 と IPv6 の両方にサービスを提供できるが、
+IPV6_V6ONLY オプションを設定していないので、
+<A HREF="../2026-07-15/echo-server-nofork-fdopen.html#ipv4-mapped-address">意図せずIPv4からの接続を許してしまうことがある。</A>
+
+IPV6_V6ONLY を利用しながら、IPv4 と IPv6 の両方に対応するように変更しなさい。
+
+</P><P>
+
+ヒント: IPv4 の acc と IPv6 の acc を2つ作成し、
+両方同時に監視する。
+
+<H3 id="exercise-808">練習問題(808) IPv4とIPv6の両方に対応可能な HTTP サーバ</H3>
+
+<A HREF="#exercise-801">練習問題(801) </A> 
+
+で、IPv6 について
+
+IPV6_V6ONLY オプションを設定し、
+<A HREF="../2026-07-15/echo-server-nofork-fdopen.html#ipv4-mapped-address">意図せずIPv4からの接続</A>
+をさせないようにしなさい。
+
+その上で、IPv4 と IPv6 の両方に対応するようにしなさい。
+
+</P><P>
+
+なお同時に扱えるクライアント数は、IPv4 と IPv6 で個別に数えても
+統合して数えてもどちらでも良い。たとえば、最大2と設定した場合、
+個別に数えて IPv4 で 2, IPv6 で 2、合計 4 としてもよい。
+
+
+
+<HR>
+Last updated: 2026/07/20 11:42:32
+ <BR>
+<ADDRESS> <A HREF="https://www.cs.tsukuba.ac.jp/~yas/">Yasushi Shinjo</A> / &lt;yas@cs.tsukuba.ac.jp&gt; </ADDRESS>
+</BODY>
+</HTML>
+

@@ -1,0 +1,137 @@
+学籍番号: 202410178
+名前: 今村隼人
+課題番号：6
+練習問題番号：604
+題名：テキストを扱うHTTPクライアント
+
+1. 動作確認環境
+
+動作確認は自分の PC 上の WSL2 環境で行った。
+OS は Ubuntu 24.04 で，カーネルは
+Linux 6.18.33.2-microsoft-standard-WSL2 である。
+コンパイラは gcc 13.3.0 を用いた。
+
+2. 練習問題(604)
+
+2.1 プログラムの説明
+
+以下に，HTTPサーバからテキストファイルを取得して
+標準出力へ表示する wcat を示す。第1引数からホスト名，
+第2引数からポート番号，第3引数からファイル名を得る。
+tcp_connect を用いて指定されたHTTPサーバへ接続し，
+fdopen_sock を用いてソケットから入力用と出力用の
+FILE構造体を作る。
+
+http_send_request は，HTTP/1.0のGET要求，Hostヘッダ，
+ヘッダの終端となる空行を送信する。HTTPの行末に合わせ，
+各行の末尾には CR-LF を表す \r\n を用いた。
+recieve_response は，fgets でサーバからの応答を1行ずつ
+読み込み，EOFになるまで標準出力へ表示する。これにより，
+応答ヘッダと本文のテキストを画面に表示する。
+
+通信には配布された coins-syspro.c の tcp_connect と
+fdopen_sock を変更せずに用いた。また，練習問題(603)で
+作成した http_send_request を利用したため，その結果は
+重複して掲載しない。
+
+604.c
+
+#include "./coins-syspro.c"
+#include <stdio.h>  /* fprintf() */
+#include <stdlib.h> /* exit() */
+
+extern void http_send_request(char *host, char *file, FILE *out);
+extern void recieve_response(FILE *in);
+
+int main(int argc, char *argv[]) {
+  char *host, *file;
+  int port;
+  int sock;
+  FILE *in, *out;
+  if (argc != 4) {
+    fprintf(stderr, "Usage: %s host file\n", argv[0]);
+    exit(1);
+  }
+  host = argv[1];
+  port = strtol(argv[2], 0, 10);
+  file = argv[3];
+  sock = tcp_connect(host, port);
+  if (sock < 0) {
+    fprintf(stderr, "tcp_connect()\n");
+    return (1);
+  }
+  if (fdopen_sock(sock, &in, &out) < 0) {
+    fprintf(stderr, "%d", fdopen_sock(sock, &in, &out));
+    // fprintf(stderr, "fdopen() \n");
+    close(sock);
+    return (1);
+  }
+  http_send_request(host, file, out);
+  recieve_response(in);
+
+  close(sock);
+  return 0;
+}
+
+void http_send_request(char *host, char *file, FILE *out) { /*2026*/
+  fprintf(out, "GET %s HTTP/1.0\r\n", file);
+  fprintf(out, "Host: %s\r\n", host);
+  fprintf(out, "\r\n");
+}
+
+void recieve_response(FILE *in) {
+  char buf[1024];
+  while (fgets(buf, sizeof(buf), in) != NULL) {
+    fprintf(stdout, "%s", buf);
+  }
+}
+
+2.2 コンパイルと実行結果
+
+以下のようにコンパイルした。
+
+$ gcc 604.c -o /tmp/wcat
+
+06.html の例と同じCOINSのWebサーバから，システム
+プログラムのページを取得した。実行結果は以下の通りで
+ある。HTML本文の途中は省略した。
+
+$ /tmp/wcat www.coins.tsukuba.ac.jp 80 /~syspro/index.html
+HTTP/1.1 200 OK
+Date: Mon, 13 Jul 2026 05:03:26 GMT
+Server: Apache
+Last-Modified: Wed, 27 May 2026 13:11:02 GMT
+ETag: "755-652cc57f62f89"
+Accept-Ranges: bytes
+Content-Length: 1877
+Connection: close
+Content-Type: text/html
+
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="content-type" CONTENT="text/html;charset=utf-8">
+<TITLE> システムプログラム
+</TITLE>
+（HTML本文の途中を省略）
+</BODY>
+</HTML>
+
+HTTPの状態行と応答ヘッダに続いて，要求したHTML本文が
+表示された。状態コードは200であり，Content-Lengthは
+1877バイトであった。したがって，指定したホストと
+ポートへ接続し，HTTP応答をEOFまで受信して表示できた。
+
+さらに，06.html に掲載された同じサーバのIPv4アドレスを
+ホスト名の代わりに指定した。以下では応答ヘッダと本文の
+途中を省略している。
+
+$ /tmp/wcat 130.158.231.86 80 /~syspro/index.html
+HTTP/1.1 200 OK
+（応答ヘッダとHTML本文の途中を省略）
+<H1><A ID="title">システムプログラム</A></H1>
+（HTML本文の途中を省略）
+</BODY>
+</HTML>
+
+IPv4アドレスを直接指定した場合にも，同じHTML本文を
+取得できた。

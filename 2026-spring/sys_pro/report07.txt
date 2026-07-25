@@ -1,0 +1,412 @@
+学籍番号: 202410178
+名前: 今村隼人
+課題番号：7
+練習問題番号：709
+題名：IPアドレスによるアクセス制御が可能なHTTPサーバ
+
+1. 動作確認環境
+
+サーバの動作確認にはCOINSのazalea16を使用した。
+OSはUbuntu 22.04で，カーネルはLinux 6.8.0-124-generic，
+コンパイラはgcc 11.4.0を用いた。クライアントには
+自分のPC上のWSL2とFirefox 152.0を用い，COINS VPNを
+経由してazalea16へ接続した。
+
+2. 練習問題(709)
+
+2.1 Apacheのアクセス制御方法の確認
+
+授業資料に示されたApacheのアクセス制御方法を確認した。
+Apacheでは，httpd.confまたは.htaccessのRequire ipに
+ネットワークアドレスを指定することで，クライアントの
+IPアドレスによるアクセス制御を行える。授業資料には，
+次の設定例が示されている。
+
+<RequireAny>
+Require ip 130.158.0.0/16
+Require ip 133.51.0.0/16
+Require ip 2001:2f8:3a:1700::/56
+</RequireAny>
+
+Require ipにはCIDR表記を利用でき，いずれかの範囲に
+含まれるクライアントからのアクセスを許可できる。
+本プログラムではこの仕組みと同様に，問題709で指定された
+2つのIPv4の/23と1つのIPv6の/56を許可範囲とした。
+
+2.2 プログラムの説明
+
+以下に，練習問題(706)と練習問題(708)を拡張し，
+IPアドレスによるアクセス制御を加えたHTTPサーバを示す。
+このため，706と708のプログラムは別には掲載しない。
+
+http_serverは，授業資料のtcp_acc_portを用いて接続受付用
+ソケットを作り，acceptでクライアントからの接続を受ける。
+通信にはfdopen_sockを用いる。要求の解析ではchomp，
+string_split，free_string_vectorを利用し，GETメソッドと
+HTTP/1.0またはHTTP/1.1の要求だけを受け付ける。
+
+要求されたファイルの拡張子からContent-Typeを決定する。
+.html，.txt，.text，.gif，.jpeg，.pngを扱う。
+ファイルはバイナリモードで開き，freadとfwriteを用いて
+内容を送るため，HTMLなどのテキストだけでなく画像も
+変更せずに送信できる。ファイルが存在しない場合は404，
+要求が不正な場合は400を返す。
+
+peer_is_allowedはgetpeernameでクライアントのアドレスを
+struct sockaddr_storageへ取得する。IPv4ではntohlで
+ホストバイトオーダへ変換し，/23のネットマスクとの
+論理積によって許可範囲を判定する。IPv6ではアドレスの
+先頭7バイトを比較して/56の範囲を判定する。また，
+IN6_IS_ADDR_V4MAPPEDでIPv4射影アドレスを検出した場合は，
+末尾32ビットをIPv4アドレスとして同じ判定を行う。
+許可範囲外のクライアントには403 Forbiddenを返す。
+
+709.c
+
+#define _POSIX_C_SOURCE 200809L
+
+/* 709.c -- IPアドレスによるアクセス制御が可能なHTTPサーバ */
+
+#include "coins-syspro.c"
+
+#include <arpa/inet.h>
+#include <stdint.h>
+
+#define BUFFERSIZE 1024
+#define IPV4_NETMASK_23 0xfffffe00U
+#define COINS_IPV4_230 0x829ee600U
+#define COINS_IPV4_222 0x829ede00U
+
+static void http_server(int portno, int ip_version);
+static void http_receive_request_and_send_reply(int com, int allowed);
+static int http_receive_request(FILE *in, char *filename, size_t size);
+static void http_send_reply(char *filename, FILE *out);
+static void http_send_error(FILE *out, int status, char *reason);
+static int peer_is_allowed(int com);
+static int sockaddr_is_allowed(struct sockaddr_storage *peer);
+static int ipv4_is_allowed(uint32_t address);
+static char *content_type(char *filename);
+
+int main(int argc, char *argv[]) {
+  int portno, ip_version;
+
+  if (!(argc == 2 || argc == 3)) {
+    fprintf(stderr, "Usage: %s portno {ipversion}\n", argv[0]);
+    exit(1);
+  }
+  portno = strtol(argv[1], 0, 10);
+  if (argc == 3)
+    ip_version = strtol(argv[2], 0, 10);
+  else
+    ip_version = 46;
+  http_server(portno, ip_version);
+  return 0;
+}
+
+static void http_server(int portno, int ip_version) {
+  int acc, com;
+
+  acc = tcp_acc_port(portno, ip_version);
+  if (acc < 0)
+    exit(1);
+  tcp_sockaddr_print(acc);
+  while (1) {
+    printf("[%d] accepting incoming connections (fd==%d) ...\n", getpid(),
+           acc);
+    if ((com = accept(acc, 0, 0)) < 0) {
+      perror("accept");
+      exit(1);
+    }
+    printf("[%d] connection (fd==%d) from ", getpid(), com);
+    tcp_peeraddr_print(com);
+    http_receive_request_and_send_reply(com, peer_is_allowed(com));
+  }
+}
+
+static void http_receive_request_and_send_reply(int com, int allowed) {
+  char filename[BUFFERSIZE];
+  FILE *in, *out;
+  int valid;
+
+  if (fdopen_sock(com, &in, &out) < 0) {
+    perror("fdopen_sock");
+    close(com);
+    return;
+  }
+  valid = http_receive_request(in, filename, sizeof(filename));
+  if (!allowed) {
+    printf("[%d] access denied\n", getpid());
+    http_send_error(out, 403, "Forbidden");
+  } else if (valid) {
+    http_send_reply(filename, out);
+  } else {
+    http_send_error(out, 400, "Bad Request");
+  }
+  printf("[%d] Replied\n", getpid());
+  fclose(in);
+  fclose(out);
+}
+
+static int http_receive_request(FILE *in, char *filename, size_t size) {
+  char requestline[BUFFERSIZE], rheader[BUFFERSIZE];
+  char **vec;
+  int count;
+  int required;
+
+  if (fgets(requestline, sizeof(requestline), in) == NULL) {
+    printf("No request line.\n");
+    return 0;
+  }
+  chomp(requestline);
+  printf("requestline is [%s]\n", requestline);
+  while (fgets(rheader, sizeof(rheader), in) != NULL) {
+    chomp(rheader);
+    if (strcmp(rheader, "") == 0)
+      break;
+    printf("Ignored: %s\n", rheader);
+  }
+
+  if (strchr(requestline, '<') != NULL ||
+      strstr(requestline, "..") != NULL) {
+    printf("Dangerous request line found.\n");
+    return 0;
+  }
+  if (string_split(requestline, ' ', &count, &vec) < 0) {
+    perror("string_split");
+    exit(1);
+  }
+  if (count != 3 || strcmp(vec[0], "GET") != 0 ||
+      (strcmp(vec[2], "HTTP/1.0") != 0 &&
+       strcmp(vec[2], "HTTP/1.1") != 0)) {
+    free_string_vector(count, vec);
+    return 0;
+  }
+  required = snprintf(filename, size, "%s", vec[1]);
+  free_string_vector(count, vec);
+  if (required < 0 || (size_t)required >= size)
+    return 0;
+  return 1;
+}
+
+static void http_send_reply(char *filename, FILE *out) {
+  char path[BUFFERSIZE], buffer[BUFFERSIZE];
+  char *type;
+  FILE *file;
+  size_t size;
+  int required;
+
+  type = content_type(filename);
+  if (type == NULL) {
+    http_send_error(out, 400, "Bad Request");
+    return;
+  }
+  required = snprintf(path, sizeof(path), ".%s", filename);
+  if (required < 0 || (size_t)required >= sizeof(path)) {
+    http_send_error(out, 400, "Bad Request");
+    return;
+  }
+  file = fopen(path, "rb");
+  if (file == NULL) {
+    http_send_error(out, 404, "Not Found");
+    return;
+  }
+
+  fprintf(out, "HTTP/1.0 200 OK\r\n"
+               "Content-Type: %s\r\n"
+               "\r\n",
+          type);
+  while ((size = fread(buffer, 1, sizeof(buffer), file)) > 0)
+    fwrite(buffer, 1, size, out);
+  fclose(file);
+}
+
+static void http_send_error(FILE *out, int status, char *reason) {
+  fprintf(out, "HTTP/1.0 %d %s\r\n"
+               "Content-Type: text/html\r\n"
+               "\r\n"
+               "<html><head></head><body>%d %s</body></html>\n",
+          status, reason, status, reason);
+}
+
+static int ipv4_is_allowed(uint32_t address) {
+  return (address & IPV4_NETMASK_23) == COINS_IPV4_230 ||
+         (address & IPV4_NETMASK_23) == COINS_IPV4_222;
+}
+
+static int peer_is_allowed(int com) {
+  struct sockaddr_storage peer;
+  socklen_t peer_size = sizeof(peer);
+
+  if (getpeername(com, (struct sockaddr *)&peer, &peer_size) < 0) {
+    perror("getpeername");
+    return 0;
+  }
+  return sockaddr_is_allowed(&peer);
+}
+
+static int sockaddr_is_allowed(struct sockaddr_storage *peer) {
+  static const unsigned char allowed_ipv6_prefix[7] = {
+      0x20, 0x01, 0x02, 0xf8, 0x00, 0x3a, 0x17};
+
+  if (peer->ss_family == AF_INET) {
+    struct sockaddr_in *peer4 = (struct sockaddr_in *)peer;
+    return ipv4_is_allowed(ntohl(peer4->sin_addr.s_addr));
+  }
+  if (peer->ss_family == AF_INET6) {
+    struct sockaddr_in6 *peer6 = (struct sockaddr_in6 *)peer;
+    unsigned char *address = peer6->sin6_addr.s6_addr;
+
+    if (IN6_IS_ADDR_V4MAPPED(&peer6->sin6_addr)) {
+      uint32_t address4;
+      memcpy(&address4, &address[12], sizeof(address4));
+      return ipv4_is_allowed(ntohl(address4));
+    }
+    return memcmp(address, allowed_ipv6_prefix,
+                  sizeof(allowed_ipv6_prefix)) == 0;
+  }
+  return 0;
+}
+
+static char *content_type(char *filename) {
+  char *extension = strrchr(filename, '.');
+
+  if (extension == NULL)
+    return NULL;
+  if (strcmp(extension, ".html") == 0)
+    return "text/html";
+  if (strcmp(extension, ".txt") == 0 ||
+      strcmp(extension, ".text") == 0)
+    return "text/plain";
+  if (strcmp(extension, ".gif") == 0)
+    return "image/gif";
+  if (strcmp(extension, ".jpeg") == 0)
+    return "image/jpeg";
+  if (strcmp(extension, ".png") == 0)
+    return "image/png";
+  return NULL;
+}
+2.3 コンパイルと実行結果
+
+動作確認用のHTMLとGIFを用意し，プログラムとともに
+azalea16の一時ディレクトリへ転送した。HTMLには07.html，
+GIFには授業資料で改行記号として使われている画像を
+利用した。
+
+$ curl -L --fail --silent --show-error -o /tmp/test.gif \
+> https://www.coins.tsukuba.ac.jp/~syspro/2026/icons/screen-return.gif
+$ ssh s2410178@azalea16.coins.tsukuba.ac.jp \
+> 'mkdir -p /tmp/syspro709-s2410178'
+$ scp 709.c coins-syspro.c 07.html /tmp/test.gif \
+> s2410178@azalea16.coins.tsukuba.ac.jp:/tmp/syspro709-s2410178/
+
+azalea16へログインし，以下のようにコンパイルして
+サーバを起動した。IPバージョンを省略したため，既定値46で
+IPv6とIPv4の両方を受け付ける。
+
+$ ssh s2410178@azalea16.coins.tsukuba.ac.jp
+azalea16$ cd /tmp/syspro709-s2410178
+azalea16$ cp 07.html index.html
+azalea16$ gcc 709.c -o 709
+azalea16$ ./709 49178
+[::]:49178
+[3510149] accepting incoming connections (fd==3) ...
+
+自分のPCをCOINS VPNへ接続し，curlでHTMLとGIFを
+要求した。VPNからの接続元アドレスは130.158.222.2であり，
+問題709で指定された130.158.222.0/23に含まれる。
+
+$ curl --noproxy '*' -sS -D - --max-time 8 \
+> -o /tmp/index.coins \
+> http://azalea16.coins.tsukuba.ac.jp:49178/index.html
+HTTP/1.0 200 OK
+Content-Type: text/html
+
+$ curl --noproxy '*' -sS -D - --max-time 8 \
+> -o /tmp/test.coins.gif \
+> http://azalea16.coins.tsukuba.ac.jp:49178/test.gif
+HTTP/1.0 200 OK
+Content-Type: image/gif
+
+取得したHTMLの一部は以下の通りである。
+
+$ grep -m1 '<HTML>' /tmp/index.coins
+<HTML>
+$ grep -m1 '<TITLE>' /tmp/index.coins
+<TITLE> システムプログラム（第7回）: ネットワーク・プログラミング／サーバ側(1)
+
+送信前後のファイルをcmpで比較した。cmpは内容が同じ場合に
+何も表示しないため，終了状態も表示した。
+
+$ cmp 07.html /tmp/index.coins
+$ echo $?
+0
+$ cmp /tmp/test.gif /tmp/test.coins.gif
+$ echo $?
+0
+$ file /tmp/test.gif /tmp/test.coins.gif
+/tmp/test.gif:       GIF image data, version 87a, 11 x 10
+/tmp/test.coins.gif: GIF image data, version 87a, 11 x 10
+
+HTMLとGIFのContent-Typeが正しく，バイナリファイルも
+1バイトも変化せずに送信できた。
+
+さらに，Windows版Firefox 152.0で次のURLを開いた。
+
+http://azalea16.coins.tsukuba.ac.jp:49178/test.gif
+
+ブラウザには矢印のGIF画像が正しく表示された。このとき，
+サーバにはFirefoxからのアクセスが次のように表示された。
+要求ヘッダの一部は省略した。
+
+[3510149] connection (fd==4) from [::ffff:130.158.222.2]:56632
+requestline is [GET /test.gif HTTP/1.1]
+Ignored: Host: azalea16.coins.tsukuba.ac.jp:49178
+Ignored: User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64;
+rv:152.0) Gecko/20100101 Firefox/152.0
+[3510149] Replied
+[3510149] accepting incoming connections (fd==3) ...
+
+許可範囲からcurlでアクセスしたときのサーバ側の表示は
+以下の通りである。IPv4の接続は，サーバではIPv4射影
+IPv6アドレスとして得られた。
+
+[3510149] connection (fd==4) from [::ffff:130.158.222.2]:56470
+requestline is [GET /index.html HTTP/1.1]
+Ignored: Host: azalea16.coins.tsukuba.ac.jp:49178
+Ignored: User-Agent: curl/8.5.0
+Ignored: Accept: */*
+[3510149] Replied
+[3510149] accepting incoming connections (fd==3) ...
+[3510149] connection (fd==4) from [::ffff:130.158.222.2]:56490
+requestline is [GET /test.gif HTTP/1.1]
+Ignored: Host: azalea16.coins.tsukuba.ac.jp:49178
+Ignored: User-Agent: curl/8.5.0
+Ignored: Accept: */*
+[3510149] Replied
+[3510149] accepting incoming connections (fd==3) ...
+
+最後に，azalea16のlocalhostから同じサーバへアクセスした。
+127.0.0.1は許可範囲外であるため，403 Forbiddenが返った。
+
+azalea16$ curl --noproxy '*' -sS -i --max-time 5 \
+> http://127.0.0.1:49178/index.html
+HTTP/1.0 403 Forbidden
+Content-Type: text/html
+
+<html><head></head><body>403 Forbidden</body></html>
+
+このときのサーバ側の表示は以下の通りである。
+
+[3510149] connection (fd==4) from [::ffff:127.0.0.1]:47348
+requestline is [GET /index.html HTTP/1.1]
+Ignored: Host: 127.0.0.1:49178
+Ignored: User-Agent: curl/7.81.0
+Ignored: Accept: */*
+[3510149] access denied
+[3510149] Replied
+[3510149] accepting incoming connections (fd==3) ...
+
+以上より，未変更の提出プログラムで，指定範囲内のIPv4と
+IPv4射影IPv6にHTMLと画像を返し，範囲外のlocalhostには
+403 Forbiddenを返す処理を確認できた。また，不許可の
+要求に応答した後もサーバは終了せず，次の接続を待った。

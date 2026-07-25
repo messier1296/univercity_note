@@ -1,5 +1,4 @@
-#import "/template.typ": frame, setup
-#show: setup
+
 
 = 数理解析第九回
 

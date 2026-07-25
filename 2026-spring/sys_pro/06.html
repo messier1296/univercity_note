@@ -1,0 +1,2407 @@
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="content-type" CONTENT="text/html;charset=iso-2022-jp">
+<TITLE> システムプログラム（第6回）: ネットワーク・プログラミング／クライアント側
+</TITLE>
+<STYLE TYPE="text/css"><!--
+
+@import url("../coins-syspro-2026.css");
+
+--></STYLE>
+</HEAD>
+
+<BODY>
+
+<H1>システムプログラム（第6回）: ネットワーク・プログラミング／クライアント側 </H1>
+<PRE>
+                                       筑波大学 システム情報系 情報工学域
+                                       <A HREF="https://www.cs.tsukuba.ac.jp/~yas/">新城 靖</A>
+                                       &lt;yas@cs.tsukuba.ac.jp&gt;
+</PRE>
+<P>
+このページは、次の URL にあります。<BR>
+<CODE>	<A HREF="https://www.coins.tsukuba.ac.jp/~syspro/2026/2026-07-08">https://www.coins.tsukuba.ac.jp/~syspro/2026/2026-07-08</A></CODE><BR>
+あるいは、次のページから手繰っていくこともできます。<BR>
+<CODE>	<A HREF="https://www.coins.tsukuba.ac.jp/~syspro/2026/">https://www.coins.tsukuba.ac.jp/~syspro/2026/</A></CODE><BR>
+<CODE>	<A HREF="http://www.coins.tsukuba.ac.jp/~yas/">http://www.coins.tsukuba.ac.jp/~yas/</A></CODE><BR>
+
+
+<H3 id="announce">連絡事項</H3>
+
+再提出のレポートが溜まっていないか、
+<A HREF="../reports.html##report-how-to">レポートの提出方法</A>
+の「一覧表示」で確認して下さい。
+
+
+<H2 id="today">今日の重要な話</H2>
+
+<UL>
+<LI> TCP/IP の考え方
+<UL>
+<LI> プロトコルスタック
+<LI> IP アドレス(IPv4)とポート番号
+<LI> ストリーム
+<LI> 通信路の開設
+<LI> クライアント・サーバ・モデル
+</UL>
+<LI> telnet コマンドの使い方
+<LI> クライアント側のプログラム、tcp_connect() の考え方
+<LI> HTTP
+</UL>
+
+<H3 id="notes-ta">新城の方針:TA、教員、隣の人の活用</H3>
+
+
+自分にできないことを他の人にやってもらうことは良いこと。
+人に聞く練習をしたい。
+
+<ul>
+<li> わからないことが出てきたら、すぐに質問する。
+<li> 教員だけでなく、ＴＡ、周りの席の人を活用する。
+</ul>
+
+Google プログラミングの禁止。人(教員，ＴＡ，周りの席の人)に聞いた方が
+100倍速い。時間の節約。
+
+</P><P>
+
+
+<H3 id="notes-generative-ai">生成AIプログラミング</H3>
+
+何のために大学に来て勉強しているのかが問われている。
+
+<UL>
+
+<LI> 学生が大学を含む学校に通う目的は、脳を鍛えること。鍛えるためには、
+自分で課題に取り組む必用がある。コンピュータ(生成AI等)に課題をやらせる
+と、確実に能力が退化する。例: 漢字変換を使うと漢字が書けなくなる。
+
+<LI> 受験勉強は、つまらない。得られた知識は合格したら忘れて良い。受験
+勉強の目的は、合格できる最低点を取ることなので、短時間で高得点を得るの
+が善である。受験勉強のような方法で大学の授業を受けるとつまらない。「短
+時間でレポートを仕上げて、成績Aをとって、あと忘れる」というのは、つま
+らない。
+
+<LI> 世の中には、受験勉強以外の勉強が存在する。（学生の皆さんは知らな
+いかもしれないが）楽しい勉強が存在する。
+
+<LI> プログラミングは、楽しい。
+楽しいことは、自分でやるのが当たり前。
+楽しいことを、コンピュータにやらせてどうするか。
+
+
+<LI> プログラミングは、文学作品や芸術作品と同じく思考の表現。gcc でも
+生成AIでも、表現のツールとして、使いこなすには、相当の実力が求められる。
+
+最低限、それらしいプログラムが生成された時に、間違いがわかる実力は必要。
+
+
+</UL>
+
+写真機(カメラ)が存在する現在でも、芸術専門学群の学生は、なぜ自分で手書
+きで絵を描いているのか。
+
+</P><P>
+
+<H3 id="notes-topdown">トップダウン的な理解</H3>
+
+今後のシステムプログラムの例題では、例題のプログラムの一部を意図的に省
+略してある。
+
+<UL>
+
+<LI> cp コマンドを使わせ、(不毛な人手による)行番号削除をやめさせるため。
+
+<LI> プログラムのトップダウン的な理解を練習してもらうため。ある部分より
+先は、ブラックボックスのまま理解を進める練習をしてもらう。
+
+例: printf(), write() システム・コールで画面やファイルにデータが出力さ
+れる。
+
+
+<LI> 細かい部分よりも本質的な部分を理解してもらうため。細かい部分は、リ
+ンクの先におき、重要な部分だけを配布資料に入れるようにしている。何か分
+からない部分があった時には、リンクをたどり細かい部分に進むのは良くない。
+大事な部分を人に聞くなどして理解するように進めるのがよい。
+
+</UL>
+
+
+<H3 id="notes-cp">例題のプログラムの利用方法</H3>
+
+プログラムの先頭にファイル名が書いてある。cp コマンドでコピーできる。た
+とえば、<CODE lang="en">~yas/syspro/ipc/echo-client-fdopen-one.c</CODE> なら次のようにして
+コピーできる。
+
+<PRE class="interaction" lang="en">$ <STRONG>cp ~yas/syspro/ipc/echo-client-fdopen-one.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>cp ~yas/syspro/ipc/coins-syspro.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+「<CODE lang="en">$</CODE>」は、プロンプトであり、実際には、「<CODE lang="en">azalea16:~s2412345$ </CODE>」のようになっている。コピーする時には、打たない。また、末尾
+の「<CODE lang="en">.</CODE>」を打つこと。これはカレント・ワーキング・ディレクトリの意
+味である。
+
+</P><P>
+
+<CODE lang="en">echo-client-fdopen-one.c</CODE>は内部で
+<CODE lang="en">#include "coins-syspro.c"</CODE>している。
+これをコンパイルするには、同じディレクトリに <CODE lang="en">coins-syspro.c</CODE>を
+コピーするか、<CODE lang="en">cc -I</CODE>でそのファイルがあるディレクトリを指定する。
+
+</P><P>
+
+レポートには、<CODE lang="en">coins-syspro.c</CODE>の内容を<STRONG>含めない</STRONG>こと。
+また、このファイルの内容は修正しないでそのまま使いなさい。
+
+</P><P>
+
+
+
+<H3 id="notes-editor">テキストエディタTips</H3>
+
+行番号を削除するなら、正規表現による
+文字列の置き換えをする方法もある。
+
+Emacs なら、M-x replace-regexp が使える。
+以下の例では、行の先頭(^)から始まる任意の文字(.)6個を空文字列に置き換え
+ている。
+
+</P><P>
+
+<PRE class="interaction" lang="en"><STRONG>M-x replace-regexp</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+Replace regexp (default 省略): <STRONG>^......</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+Replace regexp ^...... with: <IMG SRC="../icons/screen-return.gif" ALT="[←]">
+</PRE>
+
+</P><P>
+Visual Studio Code なら、 cmd + opt + F (Win cntrl + H) の置換で、「.*」のボタンを押す。
+
+
+</P><P>
+
+ただし、Web ページにあるプログラム(行番号があるもの)は、一部省略されて
+いるので、そのまま行番号を削除しただけでは動作しないことがある。
+したがって、<A HREF="#notes-cp">cpコマンド</A> でコピーすべきである。
+
+</P><P>
+
+字下げが気に入らない時には、
+テキストエディタに整えさせる。
+Emacs なら、M-x indent-region を使うとよい。region を設
+定するには、C-SPC (control + space) でマークを設定して、カーソルを移動
+させる。タブ・キーも使えるが、1行ずつしかできない。
+
+</P><P>
+
+VS-Code なら、Format Selection や Format Document (ファイル全体) を使う。
+
+
+</P><P>
+
+
+
+
+
+</P><P>
+
+
+
+
+<H2 id="tcpip">TCP/IPの基本的な考え方</H2>
+
+<P>
+
+インターネット上のアプリケーションの多くは、TCP/IPという仕組みを用いて
+通信を行っている。
+
+
+<H3 id="tcpip-stream">ストリーム</H3>
+
+</P><P>
+
+TCP/IPは、信頼性のある（reliable）双方向のストリーム転送サービス
+（stream transport service）を提供する通信プロトコルである（図１）。ス
+トリームは、次のような性質がある転送サービスである。
+
+<UL>
+<LI> データの送り手と受けての間に結合(connection，通信路)が作られる
+<LI> 複数回に分けて送り出したデータの順番が入れ替わることはないが、データの区切りは保存されない
+<LI> 送り出したデータが相手に届くようにがんばる（best effort。途中で失
+われた時には、再送する）
+</UL>
+
+Unixのパイプは、双方向ではなく単方向であるが、同じストリームに分類され
+る転送サービスを提供するものである。単方向で、データが失われることはな
+い。
+
+</P><P>
+
+
+<P id="Figure:tcpip-1-stream"><BR>
+<STRONG>
+<IMG SRC="images/tcp-stream-bi.png"
+width=480
+     ALT="図１(a)　TCP/IPにより提供されるストリーム">
+<BR>
+図１(a)　TCP/IPにより提供される双方向ストリーム
+</STRONG></P>
+
+
+
+<P id="Figure:tcpip-1-stream-uni"><BR>
+<STRONG>
+<IMG SRC="images/tcp-stream-uni.png"
+width=480
+     ALT="図１(b)　Unixのパイプにより提供されるストリーム">
+<BR>
+図１(b)　Unixのパイプにより提供される単方向ストリーム
+</STRONG></P>
+
+
+
+</P><P>
+
+なお、Ｃ言語のライブラリ関数である fopen(), fgets(), fputs() なども、
+ストリームと呼ばれることがある。これは、もともとランダム・アクセス可能
+で、メモリ中の配列と同じようにアクセスするすることもできるファイルを、
+まるでプロセス間通信のストリームと同じように扱うことができることにも
+関係している。
+
+</P><P>
+
+<H3 id="tcpip-connection-establish">通信路の開設</H3>
+
+</P><P>
+
+TCP/IP では、プロセスとプロセスが、電話で会話をするように通信が行われ
+る。普通の電話で人間同士が話をするには、まず電話番号を指定して、話相手
+に電話をとってもらわなければならない。TCP/IP においても同様である。
+TCP/IPでは、電話を掛ける方をクライアント・プロセス、電話を待つ方をサー
+バ・プロセスと言いう。
+
+</P><P>
+
+
+
+TCP/IP では、回線を接続する段階では、クライアント・
+プロセスとサーバ・プロセスは非対称である。一度通信路が確立された後は、
+両方のプロセスは、TCP/IPのレベルでは、まったく対称的になる。
+
+</P><P>
+
+TCP/IPにおいてプロセス間に通信路を開設するには、IPアドレスとポート番
+号が必要である。ポート番号は、同じIPアドレスを持つホスト（ネットワークに接続されたコンピュータ）上で動いている
+プロセスを区別するために使われる。
+
+</P><P>
+
+以下に、通信路が開設される手順を示す。
+
+</P><P>
+
+<OL>
+
+<LI> サーバ・プロセスが、ポート番号を指定して、接続要求受付用ポートを作る(図３(a))。
+（注意：要求受付用ポートでは、データの送受信はできない。）
+
+<LI> サーバ・プロセスが、クライアント・プロセスからの接続要求を待つ(図３(b))。
+
+
+
+<LI> クライアント・プロセスが通信用ポートを作り、それを使ってサーバ・プ
+ロセスが動いているホストの<STRONG>IPアドレス</STRONG>(32ビット、または、128ビットの整数)と、サーバ・プロセスが作った接続
+要求受付用ポートの<STRONG>ポート番号</STRONG>(16ビット)を使って、接続要求を行う(図３(c))。
+(注意:文字列のホスト名は、内部的にはIPアドレスに変換されて使われる。)
+
+<LI> 接続要求が受け付けられると、サーバ側では、新たに通信用ポートが作ら、
+サーバ・プロセスから利用可能になる(図３(d))。これは、特定のクライアント
+との通信のために使われる。
+
+<LI> 以後、クライアント・プロセスとサーバ・プロセスは、データを送受信す
+る(図３(e))。順番はどちらからが先でも良い。
+
+</OL>
+
+</P><P>
+
+
+<P id="Figure:tcpip-conn-tcp_acc_port"><IMG SRC="images/tcpip-conn-tcp_acc_port.png"
+width=800
+     ALT="図3(a) TCP/IP通信路の開設(1)。サーバは、tcp_acc_port()で接続要求受付用ポ-トを作る。">
+<BR>
+<BR>
+<STRONG>図3(a) TCP/IP通信路の開設(1)</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-conn-accept"><IMG SRC="images/tcpip-conn-accept.png"
+width=800
+     ALT="図3(b) TCP/IP通信路の開設(2)。サーバは、accept()で接続要求を待つ。">
+<BR>
+<BR>
+<STRONG>図3(b) TCP/IP通信路の開設(2)</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-conn-tcp_connect"><IMG SRC="images/tcpip-conn-tcp_connect.png"
+width=800
+     ALT="図3(c) TCP/IP通信路の開設(3)。クライアントは、tcp_connect()で,通信用ポ-トを作り,接続要求を行なう。">
+<BR>
+<BR>
+<STRONG>図3(c) TCP/IP通信路の開設(3)</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-conn-established"><IMG SRC="images/tcpip-conn-established.png"
+width=800
+     ALT="図3(d) TCP/IP通信路の開設(4)。通信路が確立される。サーバ側で、通信用ポートが作られる。">
+<BR>
+<BR>
+<STRONG>図3(d) TCP/IP通信路の開設(4)</STRONG></P>
+
+
+
+
+<P id="Figure:tcpip-conn-read-write"><IMG SRC="images/tcpip-conn-read-write.png"
+width=800
+     ALT="図3(e) TCP/IP通信路の開設(5)。クライアント、サーバとも write(),read() でデータの送受信。">
+<BR>
+<BR>
+<STRONG>図3(e) TCP/IP通信路の開設(5)</STRONG></P>
+
+
+
+</P><P>
+
+TCP/IPにおける通信路開設において、クライアントは、サーバ側の接続要求受
+付用ポートのポート番号を、事前に知っている必要がある。サーバは、普通、
+ポート番号を固定する。いくつかの主要なサービスでは、利用すべきポート番
+号が決められている。たとえば、HTTP ならば、80 を使う。
+
+</P><P>
+
+クライアント側の通信用ポートのポート番号は、通常は、オペレーティング・
+システムにより自動的に割り当てられる。
+
+</P><P>
+
+<H2 id="client-server">クライアント・サーバ・モデル</H2>
+
+プロセスは、本来、いつでも自由にメッセージ(ネットワークを流れるデー
+タ)を送信でき、いつでも自由に、メッセージを受信できる。しかし、本当に自
+由に送信と受信を行うと、プログラムが複雑になり、見通しが悪くなり、バグ
+も混入しやすくなる。
+
+
+そこで、通信を行うプログラムを書く時に
+意図的に制約を設定してプログラムを単純化して見通し
+のよいものにしようという考え方が生まれた。
+
+たとえば、図？で、(a) と (b) を比較すると、プロセスの数とメッセージの
+数は同じであるが、(b) の方がはるかに見通しがよい。
+
+
+<P id="Figure:client-server-unstructured"><IMG SRC="images/client-server-unstructured.png"
+width=320
+     ALT="図？(a)　構造化されていないもの">
+<BR>
+<STRONG>図？(a)　構造化されていないもの</STRONG></P>
+
+
+
+
+<P id="Figure:client-server-structured"><IMG SRC="images/client-server-structured.png"
+width=360
+     ALT="図？(b)　構造化されたもの">
+<BR>
+<STRONG>図？(b)　構造化されたもの</STRONG></P>
+
+
+
+クライアント・サーバ・モデルは、プロセス間通信を構造化したものであり、
+デザイン・パターンの１つである。
+
+</P><P>
+
+プログラミングの歴
+史の中で「構造化」という言葉は、まず、「制御構造」に対して使われた。構
+造化プログラミングとは、goto文を、よい goto 文と悪い goto文に分け、よ
+い goto 文だけを使うようにしようとするものである。初期のプログラミング
+では、アセンブリ言語や貧弱な制御構造しか持たない Fortran が使われてい
+たが、その時は、jump 命令や goto 文が多用されていた。そのような jump 
+命令や goto 文にも、分かりやすいものとわかりにくいものがあった。そこで、
+よい goto 文のパターンを整理して、それだけを使ってプログラムを書くのが
+よいとされた。そしてよい goto 文にはプログラミング言語のレベルでif、
+while、continue、break、そして、手続き呼出し(call)とreturn という特別
+な形式が割り当てられた。Ｃ言語や Pascal では、goto 文が残されたが、
+Java などの言語ではgoto 文が記述できなくなっている。
+
+
+</P><P>
+
+プロセス間通信を構造化するという意味でのクライアント・サーバ・モデル
+では、まずプロセスをクライアントとサーバの２種類に分ける。
+
+
+<P id="Figure:client-server"><IMG SRC="images/client-server-pattern.png"
+width=380
+ALT="図? 通信のパタンからみたクライアントとサーバの定義"><BR>
+<STRONG>図? 通信のパタンからみたクライアントとサーバの定義</STRONG></P>
+
+
+
+
+クライアントもサーバも、多くの場合、内部に１つループを持ち、次の動作を
+繰り返す。
+
+<DL>
+<DT> クライアント
+<DD> 先に(要求)メッセージを送信し、後で(応答)メッセージを受信する。
+<DT> サーバ
+<DD> 先に(要求)メッセージを受信し、後で(応答)メッセージを送信する。
+
+</DL>
+
+</P><P>
+
+クライアント・サーバ・モデルに基づくプログラムには次のようなことを行う
+プロセスは存在しない。
+
+<UL>
+<LI> 送信しかやらない
+<LI> 受信しかやらない
+<LI> 送信を２回して受信を１回だけやる
+<LI> 受信したら、処理の内容によって送信したりしなかったりする
+</UL>
+
+注意：クライアントとサーバは、いろいろな意味で使われる。これらの意味は、
+多くの場合、一致しているが、一致していないこともある。
+
+</P><P>
+
+<H3 id="clienrt-server-send-rec-client">クライアントのパタン</H3>
+
+<PRE class="program">
+    com = tcp_connect();       // 接続要求。accept() と対応。
+
+    write(com&#44; message);       // 要求メッセージの送信
+    read(com&#44; message);        // 応答メッセージの受信
+    write(com&#44; message);       // 要求メッセージの送信
+    read(com&#44; message);        // 応答メッセージの受信
+    ...                        // 必要回数繰り返す
+
+    close(com);                // 接続の切断。
+</PRE>
+
+ここで、write(), read() は、抽象的な意味。
+具体的なシステム・コールの使い方を説明したものではない。
+
+write() や read() は、複数の具体的なシステム・コールと対応することが
+ある。たとえば、1回のシステム・コールでは送信できない場合、（ループして）
+複数回のシステム・コールを用いることもある。
+
+
+<H3 id="clienrt-server-send-rec-server">サーバのパタン</H3>
+
+<PRE class="program">
+    acc = tcp_acc_port();          // 受付端の登録。
+    while( 1 )
+    {
+        com = accept(acc);         // 実際の受付。connect() と対応。
+        while( !eof(com) )
+        {
+            read(com&#44; message);    // 要求メッセージの受信
+            write(com&#44; message);   // 応答メッセージの送信
+        }
+        close(com);                // 接続の切断。
+    }
+</PRE>
+
+
+
+<H3 id="tcp-api">情報科学類「システムプログラム」で用いる独自のAPIと標準のAPI</H3>
+
+TCP/IPのクライアント側のプログラムで大事な標準のシステムコールとライブ
+ラリ関数は、一般に、次の通りである。
+
+<UL>
+<LI> socket()
+<LI> connect() (クライアント側)
+<LI> getaddrinfo()
+<LI> bind(), listen(), accept() (サーバ側)
+<LI> read(), write(), send(), recv(), ... 
+</UL>
+
+この講義では、次の独自のAPIを用いる。
+これらの関数のソースコードと関連する関数は、例題のプログラム(<CODE lang="en">coins-sypro.c</CODE>)に含まれている。
+
+<DL class="table">
+<DT> <CODE lang="en">int tcp_connect( char *<VAR>server</VAR>, int <VAR>portno</VAR> )</CODE> [独自, サーバ側]
+<DD> 通信用ポートを作成し、
+ホスト名 <CODE lang="en"><VAR>server</VAR></CODE> のポート番号 <CODE lang="en">(<VAR>portno</VAR>)</CODE> へ
+TCPで通信路を開設する。
+そのTCP/IPのストリームに対応したファイル記述子を返す。
+
+<DT> <CODE lang="en">int tcp_acc_port( int <VAR>portno</VAR>, int <VAR>ip_version</VAR> )</CODE> [独自, サーバ側]
+<DD> ポート番号 <VAR>portno</VAR> 接続要求受付用ポートを作成し、そのファイル記述子を返す。
+<VAR>ip_version</VAR> は、IP のバージョンで、4 なら IPv4、6 なら IPv6 専用とする。
+46 や 64 なら、IPv6 だが、IPv4 からの接続も受け付ける。
+
+<DT> <CODE lang="en">int fdopen_sock( int sock, FILE **inp, FILE **outp )</CODE> [独自]
+
+<DD> tcp_connect() で得られた、TCP/IPのファイル記述子を、2つの
+<CODE lang="en">FILE *</CODE>に変換する。2つのうち、1つは受信用、もう1つは送信用。
+
+</DL>
+
+クライアント側もサーバ側も、fdopen_sock() の働きにより、次の標準の関数
+を用いてネットワークのデータを送受信することができる。
+
+<DL class="table">
+<DT> <CODE lang="en">int fprintf(FILE *out,char *fmt, ...)</CODE> [標準]
+<DD> out に結びついた TCP/IP のストリームに対してメッセージを送信する。
+
+
+<DT> <CODE lang="en">char *fgets(char *buf, int n, FILE *in )</CODE> [標準]
+<DD> in に結びついた TCP/IP のストリームに対からメッセージを
+1行受信する。
+
+<DT> <CODE lang="en">size_t fwrite(void *buf, size_t size, size_t nitems, FILE *out)</CODE> [標準]
+
+<DD> out に結びついた TCP/IP のストリームに対してbuf 番地にある長さ
+size バイトの構造体を nitems 個送信する。構造体ではなく、バイト単位で送
+信したい場合には、size には 1 を指定し、nitems には、バッファの大きさを
+指定する。
+
+<DT> <CODE lang="en">size_t fread(void *buf, size_t size, size_t nitems, FILE *in)</CODE>) [標準]
+
+<DD> in に結びついた TCP/IP のストリームから size バイトの長さの構造体
+を nitems だけ受信する。構造体ではなく、バイト単位で受信したい場合には、
+size には 1 を指定し、nitems には、バッファの大きさを指定する。
+
+</DL>
+
+<CODE lang="en">FILE *</CODE>については、
+<A HREF="../2026-06-10/index.html#sec:file-access1">前半第3回「11. ファイルアクセス(基本)」</A>
+も参照。
+
+</P><P>
+
+サーバ側では、次の標準のシステム・コールを用いる。
+
+<DL class="table">
+<DT> <CODE lang="en">int accept(int <VAR>sockfd</VAR>, struct sockaddr *<VAR>addr</VAR>, socklen_t *<VAR>addrlen</VAR>)</CODE> [標準, サーバ側]
+<DD>
+
+ファイル記述子 <VAR>sockfd</VAR> で指定された通信用ポートに対するクライアントからの接続要求を待つ。
+接続要求が届いたら、そのクライアントとの通信用ポートを作成し、そのファイル記述子を返す。
+<VAR>addr</VAR> は、クライアントのアドレス(TCP/IPではIPアドレスとポート番号)を受け取るためのポインタで、アドレスが不用な時は 0 を指定する。
+<VAR>addrlen</VAR> は、<VAR>addr</VAR> の大きさを指定する。
+
+</DL>
+
+
+<H2 id="telnet">TCP/IP の汎用クライアント・プログラムとしての telnet コマンド</H2>
+
+<H3 id="telnet-how">telnet コマンドとは</H3>
+
+telnet コマンドは、本来は、ssh と同様に遠隔ログインのコマンドであり、
+通常次のように使われる。
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet <VAR>hostname</VAR> <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+以後、ユーザ名とパスワードを打ち、そのホストへログインできる。そしてシェ
+ルにより対話的に利用できる。(coins では、telnet による遠隔ログインのサー
+ビスを提供していない。)
+
+</P><P>
+
+<H3 id="telnet-generic-tcp-client">TCPの汎用クライアントとしてのtelnet</H3>
+
+telnet コマンドに、次のようにポート番号(23のtelnetサービス以外)を与える
+ことで、文字列を送受信するようなプロトコルについては
+汎用のTCPのクライアントとして使える。
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet <VAR>hostname</VAR> <VAR>portno</VAR> <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+</P><P>
+
+
+<P id="Figure:term-telnet-server"><IMG SRC="images/term-telnet-server.png"
+width=400
+     ALT="端末、telnet、サーバ、要求、応答"><BR>
+<STRONG>図？ TCPの汎用クライアントとしてのtelnet</STRONG></P>
+
+
+
+<UL>
+<LI> 送受信されるデータは、テキストのみ。
+<LI> キーボードから打ち込んだ文字列は、サーバへ送られる(要求)。
+<LI> サーバから送られてきた文字列(応答)は、画面へ表示される。
+</UL>
+
+</P><P>
+
+<H3 id="telnet-echo">telnetによるecho サーバへの接続</H3>
+
+echo サーバは、送られて来た文字列（最後に改行）をそのまま送り返すサーバ
+である。echo サーバは、ポート番号として 7 番を用いている。
+
+</P><P>
+
+以下の例は、telnet コマンドをクライアントとして用いて、echo サーバに接
+続して、文字列を送受信している。
+
+coins の azalea PC で Linux が起動している時、
+jelly PC (常に Linux が起動している時) では、
+TCPのポート番号7で、echo のサーバが動いている。
+(violet01, violet03 では動作していない。)
+
+</P><P>
+
+<PRE class="interaction" lang="en">
+$ <STRONG>grep &#39;^echo.*/tcp&#39; /etc/services <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+echo		7/tcp
+$ <STRONG>telnet azalea15.coins.tsukuba.ac.jp 7 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::231:15...
+Connected to azalea15.coins.tsukuba.ac.jp.
+Escape character is &#39;^]&#39;.
+<STRONG>hello</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+hello
+<STRONG>exit</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+exit
+<STRONG>quit</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+quit
+^]
+telnet> <STRONG>quit</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+Connection closed.
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+telnet コマンドは、<KBD>^C</KBD> (control+C) や <KBD>^D</KBD> (control+D)
+を打っても終了しない(そのままサーバに送信することがある)。<KBD>^]</KBD>
+を打つと、ローカルの telnet コマンドを制御することができる。ここで、
+<CODE lang="en">quit</CODE> などのコマンドが使える。
+
+
+<P id="Figure:human-telnet-echo-server-hello"><BR>
+<STRONG>
+<IMG SRC="images/human-telnet-echo-server-hello.svg"
+width=340
+     ALT="図？　telnet コマンドによる echo サーバへの接続">
+<BR>
+図？　telnet コマンドによる echo サーバへの接続
+</STRONG></P>
+
+
+
+<H3 id="telnet-daytime">telnetによるdaytime サーバへの接続</H3>
+
+coins の azalea PC で Linux が起動している時、
+jelly PC (常に Linux が起動している時) では、
+TCPのポート番号13では、daytime のサーバが動いている。
+telnet で接続すると、何も送らなくても、日付、日時、タ
+イムゾーンを返す。
+
+<PRE class="interaction" lang="en">
+$ <STRONG>grep daytime /etc/services <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+daytime		13/tcp
+daytime		13/udp
+$ <STRONG>date <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+2026年  6月 16日 火曜日 16:42:44 JST
+$ <STRONG>telnet azalea15.coins.tsukuba.ac.jp 13 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Trying 2001:2f8:3a:1711::231:15...
+Connected to azalea15.coins.tsukuba.ac.jp.
+Escape character is ^].
+16 JUN 2026 16:42:52 JST
+Connection closed by foreign host.
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+''</PRE>
+
+
+<P id="Figure:human-telnet-daytime-server"><BR>
+<STRONG>
+<IMG SRC="images/human-telnet-daytime-server.svg"
+width=360
+     ALT="図？　telnet コマンドによる daytime サーバへの接続">
+<BR>
+図？　telnet コマンドによる daytime サーバへの接続
+</STRONG></P>
+
+
+
+
+<H3 id="coins-lan">echoサービスと daytimeサービス</H3>
+
+
+注意：coins では、システムプログラムの授業のために特別に echo サービス
+(ポート番号 7)や daytime サービス(ポート番号13)は、coins の LAN 内から
+だけ利用できる。セキュリティ上の理由から、これらのサービスを動かさない
+ことが一般的である。
+
+(ポート番号80は、coins の LAN の外からもアクセス可能である。)
+
+</P><P>
+
+2026年6月現在、echo サービスや daytime サービスは、azalea01-azalea30 Linux が動作している時、
+および、jelly1-jelly10 で利用可能である。
+azalea01-azalea30 でWindows が動いている時は使えない。
+
+動作しない時は、
+<A HREF="https://www.coins.tsukuba.ac.jp/coins-status/">COINS Status</A>
+で、PC が動いているか、Linux が動いているかを確認しなさい。
+
+</P><P>
+
+coins の echo サービスや daytime サービスを利用する実験を行なう時には、
+coins 内のコンピュータに ssh でログインして行なうとよい。自分の PC で
+telnet コマンドを動かすなら、その PC を VPN でcoins の LAN に接続する
+こともできるが、少し難しい所がある。
+
+</P><P>
+
+<H3 id="telnet-command">様々なOSでのtelnetコマンド</H3>
+
+coins に入っている Linux (azalea, jelly, violet) には telnet コマンドがインストール済みである。
+自分の Linux で使いたい時には、telnet というパッケージを入れると良い。
+
+</P><P>
+
+macOS では、Macports の inetutils パッケージに含まれている gtelnet コマンドか、
+Homebrew の telnet パッケージの telnet コマンドを使う。
+
+</P><P>
+
+Windows 11 では、次の手順で使えるようになる。
+
+<OL>
+
+<LI> <CODE lang="en">Win + X</CODE>キー、または、スタートを右クリック、または、長押し
+で、コンテキストメニューを表示する。
+
+<LI> 表示されたメニューで、「ターミナル(管理者)」を選ぶか、「<CODE lang="en">A</CODE>」
+キーを打つ。
+
+<LI> 開いたターミナル(PowerShell)で、次のコマンドを打つ。
+
+<PRE class="interaction" lang="en">
+Enable-WindowsOptionalFeature -Online -FeatureName TelnetClient
+</PRE>
+
+無効化するには、<CODE lang="en">Enable</CODE>を<CODE lang="en">Disable</CODE>にする。
+	
+</OL>
+
+管理者の「コマンドプロンプト」で dism コマンドを使う方法もある。
+</P><P>
+
+参考: <A HREF="https://www.prajwaldesai.com/enable-or-disable-telnet-on-windows-11/"><CODE lang="en">https://www.prajwaldesai.com/enable-or-disable-telnet-on-windows-11/</CODE></A>
+
+</P><P>
+
+しかし、Windows の telnet コマンドは使いにくいので、授業等で自分で試す
+ならssh で Linux にログインして、そこで使うことを奨める。
+
+</P><P>
+
+Windows の telnet コマンドでは、デフォルトで localecho が無効になって
+いるので、キーボードから打った文字が画面に表示されない。
+
+自分で試すなら、キーボードから打った文字も画面に表示された方が便利であ
+る。そのためには、<KBD>^]</KBD>で、telnet のプロンプトを表示し、そこで
+「<CODE lang="en">set localecho</CODE>」として、ローカルエコーを有効にすると良い。
+
+</P><P>
+
+<H2 id="echo-client">echoサービスのクライアント</H2>
+
+TCP/IP のポート番号 7 では、送られてきた文字をそのまま返すサービスを提
+供している。
+
+実行例については、上の 
+<A HREF="#telnet-echo">telnetによるecho サーバへの接続</A>
+を参照しなさい。
+
+
+
+<H3 id="echo-client-fdopen-one.c">echo-client-fdopen-one.c</H3>
+
+
+以下のプログラムは、echo サービスを利用するクライアントである。実行例
+を先に示す。
+
+<PRE class="interaction" lang="en">$ <STRONG>cp ~yas/syspro/ipc/echo-client-fdopen-one.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>cp ~yas/syspro/ipc/coins-syspro.c . <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>make echo-client-fdopen-one <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+cc     echo-client-fdopen-one.c   -o echo-client-fdopen-one
+$ <STRONG>./echo-client-fdopen-one <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Usage: ./echo-client-fdopen-one host port &#39;message&#39;
+$ <STRONG>./echo-client-fdopen-one azalea15.coins.tsukuba.ac.jp 7 hello <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+sent: 6 bytes [hello
+]
+received: 6 bytes [hello
+]
+$ <STRONG>./echo-client-fdopen-one azalea15.coins.tsukuba.ac.jp 7 exit <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+sent: 5 bytes [exit
+]
+received: 5 bytes [exit
+]
+$ <STRONG>./echo-client-fdopen-one azalea15.coins.tsukuba.ac.jp 7 quit <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+sent: 5 bytes [quit
+]
+received: 5 bytes [quit
+]
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+このプログラムは、コマンドラインから３つの引数をとる。第１引数で指
+定されたホスト上の、第２引数で指定されたポートで動作しているサーバに接
+続する。そして、第３引数で与えられたメッセージをサーバへ送る。echo 
+サービスのサーバは、同じ文字列を送り返して来る。このプログラムは、サー
+バから送り返されてきた文字列を受取り、結果を画面に表示する。
+telnet コマンドとは異なり、文字列を１つしか送受信しない。
+
+</P><P>
+
+
+<H4><A id="echo-client-fdopen-main">echo-client-fdopen-one.c のmain()</A></H4>
+
+[<A HREF="echo-client-fdopen-one.c"><CODE lang="en">echo-client-fdopen-one.c</CODE></A>]
+[<A HREF="coins-syspro.c"><CODE lang="en">coins-syspro.c</CODE></A>]
+
+</P><P>
+<PRE class="program">
+   1:	
+   2:	/*
+   3:	  echo-client-fdopen-one.c -- 文字列を送受信するクライアント(TCP/IP版)
+   4:	  ~yas/syspro/ipc/echo-client-fdopen-one.c
+   5:	*/
+   6:	
+   7:	#include "coins-syspro.c"
+   8:	
+   9:	extern    int echo_client_one( char *server&#44; int portno&#44; char *message );
+  10:	extern    int echo_send_request( FILE *out&#44; char *message );
+  11:	extern    int echo_receive_reply( FILE *in&#44; char buf[]&#44; int size );
+  12:	
+  13:	int
+  14:	main( int argc&#44; char *argv[] )
+  15:	{
+  16:	        char *server ;
+  17:	        int portno ;
+  18:	        char *message ;
+  19:	        int err;
+  20:	        if( argc != 4 )
+  21:	        {
+  22:	                fprintf( stderr&#44;"Usage: %s host port 'message'\n"&#44;argv[0] );
+  23:	                exit( -1 );
+  24:	        }
+  25:	        server  = argv[1] ;
+  26:	        portno  = strtol( argv[2]&#44;0&#44;10 );
+  27:	        message = argv[3];
+  28:	        err = echo_client_one( server&#44; portno&#44; message );
+  29:	        return( err );
+  30:	}
+  31:	
+
+</PRE>
+
+
+<CODE lang="en">#include</CODE>で<CODE lang="en">coins-syspro.c</CODE>を読み込んでいる。
+以下では、
+この中に定義されている関数
+tcp_connect()
+と
+fdopen_sock()
+を使う。
+
+</P><P>
+
+main() 関数は、コマンドラインの引数を調べて、echo_client_one() を呼んで
+いる。第2引数のポート番号については、strtol() で、文字列として与えられ
+た数を、int に変換している。
+
+<H4><A id="echo_client_one">echo_clien_one()</A></H4>
+
+<PRE class="program">
+  32:	#define BUFFERSIZE      1024
+  33:	
+  34:	int
+  35:	echo_client_one( char *server&#44; int portno&#44; char *message )
+  36:	{
+  37:	        int sock ;
+  38:	        FILE *in&#44; *out ;
+  39:	        char rbuf[BUFFERSIZE];
+  40:	        int res;
+  41:	
+  42:	        sock = tcp_connect( server&#44; portno );
+  43:	        if( sock&lt;0 )
+  44:	                return( 1 );
+  45:	        if( fdopen_sock(sock&#44;&amp;in&#44;&amp;out) &lt; 0 )
+  46:	        {
+  47:	                fprintf(stderr&#44;"fdooen()\n");
+  48:	                close( sock );
+  49:	                return( 1 );
+  50:	        }
+  51:	        res = echo_send_request( out&#44; message );
+  52:	        if( res &lt; 0 )
+  53:	        {
+  54:	                fprintf(stderr&#44;"fprintf()\n");
+  55:	                fclose( in );
+  56:	                fclose( out );
+  57:	                return( 1 );
+  58:	        }
+  59:	        printf("sent: %d bytes [%s\n]\n"&#44;res&#44;message );
+  60:	        res = echo_receive_reply( in&#44; rbuf&#44; BUFFERSIZE );
+  61:	        if( res &lt; 0 )
+  62:	        {
+  63:	                fprintf(stderr&#44;"fprintf()\n");
+  64:	                fclose( in );
+  65:	                fclose( out );
+  66:	                return( 1 );
+  67:	        }
+  68:	        printf("received: %d bytes [%s]\n"&#44; res&#44; rbuf );
+  69:	        fclose( in );
+  70:	        fclose( out );
+  71:	        return( 0 );
+  72:	}
+  73:	
+</PRE>
+
+echo_client_one() では、tcp_connect() という関数を呼び出している。この結果、
+サーバとの間に TCP/IP通信路の開設され、通信可能なファイル記述子
+(ファイルディスクリプタ)
+が返さ
+れる。このファイル記述子は、標準入出力(0,1,2)や open() システム・コー
+ルの結果と同じもので、
+
+write() システムコールや read() システムコールの第一引数とし
+て使うことができる。つまり、write() システムコールを使うと、ネットワー
+クに対してデータを送り出すことができ、read() システムコールを使うとネッ
+トワークからデータを受け取ることができる。最後に不要になったら close() 
+で解放する。
+
+</P><P>
+
+このプログラムでは、fdopen_sock() を使って、通信可能なファイル記
+述子 com から２つの FILE * を作成している。１つは、入力用、１つは出力
+用である。その結果、
+
+高水準入出力ライブラリ
+
+を使って通信が行えるようになっている。fprintf() で出力用の FILE * に書
+き込むと、ネットワークに対してデータが送り出される。入力用の FILE * に 
+fgets() を行うと、ネットワークからデータを受け取ることができる。
+
+</P><P>
+
+echo_send_request() を呼び出して、要求メッセージを送信している。
+echo_receive_reply() を呼び出して、応答メッセージを受信している。
+
+</P><P>
+
+<H4><A id="echo_send_request">echo_send_request()</A></H4>
+
+<PRE class="program">
+  74:	int
+  75:	echo_send_request( FILE *out&#44; char *message )
+  76:	{
+  77:	        int res;
+  78:	        res = fprintf( out&#44; "%s\n"&#44; message ); /* send a request with '\n' */
+  79:	        return( res );
+  80:	}
+  81:	
+</PRE>
+
+</P><P>
+
+echo_send_request() は、エコー・サービスで、要求メッセージを
+送信する関数である。
+
+TCP/IP の通信では、行単位(最後に\n)でデータを送受信することが多い。
+このプログラムでは、fprintf() で行末に改行(\n)を付加している。
+
+</P><P>
+
+<H4><A id="echo_receive_reply">echo_receive_reply()</A></H4>
+
+<PRE class="program">
+  82:	int
+  83:	echo_receive_reply( FILE *in&#44; char buf[]&#44; int size )
+  84:	{
+  85:	        char *res;
+  86:	        res = fgets( buf&#44; size&#44; in ); /* receive a reply message */
+  87:	        if( res )
+  88:	                return( strlen(buf) );
+  89:	        else
+  90:	                return( -1 );
+  91:	}
+</PRE>
+
+</P><P>
+
+echo_receive_reply() は、エコー・サービスで、応答メッセージを
+受信する関数である。
+
+fgets() を使って、文字列のデータを行末「<CODE lang="en">\n</CODE>」まで受信している。
+
+</P><P>
+
+echo サービスでは、１行送り、１行受け取る。他のサービスでは、１行送っ
+て複数行受け取ったり、受け取る方では行の概念がなくなるもの(HTTPで画像
+データを受け取る場合など)もある。その場合は、fprintf() や fgets() では
+なくて、fwrite() や fread() を使う必要がある。
+
+</P><P>
+
+
+
+<H2 id="http">HTTP</H2>
+
+Web (the World-Wide Web)では、TCP/IP の上にさらに HTTP (HyperText
+Transfer Protocol)と呼ばれるプロトコルを構築し、データの転送を行ってい
+る。Firefox や Lynx などのブラウザは、Web サーバとの間に TCP/IP による
+通信路を開設する。そして、クライアントは、必要なデータを得るための
+要求メッセージを送る。
+これに対してサーバは、それに応じた処理を行い、応答メッセージを返す。
+要求メッセージや応答メッセージの形式を定めたものが、HTTP である。
+HTTP に従い、要求メッセージを受け取り、応答メッセージを送信するサーバを、
+HTTP サーバや HTTP デーモン (http daemon, httpd) と呼ぶ。
+
+</P><P>
+
+<H3 id="http-request">HTTPの要求</H3>
+
+HTTP の要求は、最初に要求の種類（メソッド）を含む行があり、以後、オプショ
+ンが続く。最後に、空行があり、要求の終わりを示す。
+
+たとえば、次のような URL を持つデータをアクセスすることを考える。
+
+</P><P>
+
+
+
+
+<BLOCKQUOTE>
+	<CODE lang="en">http://www.coins.tsukuba.ac.jp/~syspro/</CODE>
+
+</BLOCKQUOTE>
+
+
+</P><P>
+
+Firefox などのクライアントは、まずホスト名 www.coins.tsukuba.ac.jp を
+IP アドレスに変換する。そして、その IP アドレスとポート
+番号 80 (http のデフォルト)を使ってサーバとの間に TCP/IP の通信路を開設する。そして、クラ
+イアントは、開設した通信路を使って、サーバに次のような文字列を送る。
+
+<PRE class="interaction" lang="en">GET /~syspro/ HTTP/1.0←↓
+Host: www.coins.tsukuba.ac.jp←↓
+←↓
+</PRE>
+
+</P><P>
+
+
+
+ここで、"GET" が命令の種類、"/~syspro/" は、GETの引数の、要求してい
+るデータを表わす URL (ファイル名)、"HTTP/1.0" は、使っているプロトコル
+のバージョンである。
+
+</P><P>
+
+"Host:" は、名前ベースの仮想ホストを使っている場合に必要となる。
+
+</P><P>
+
+空行は、命令のヘッダ部分の終りを意味するもので
+あり、必要である。
+
+</P><P>
+
+行末の 「←」は、キャリッジ・リターンのコード(0x0d, C言語で
+<CODE lang="en">'\r'</CODE>)、「↓」は、ラインフィード(ニューライン)のコード(0x0a, C言語で<CODE lang="en">'\n'</CODE>)である。HTTP の
+ヘッダでは、行末に「←↓」を付けるように規定されている。（サーバを構築
+する場合には、「←」か「↓」のどちらか１つしかこない場合でもきちんと動
+作することが望ましい。）
+
+</P><P>
+
+
+
+
+</P><P>
+
+<H4><A id="http-host">HTTPの要求での Host: の役割</A></H4>
+
+1つの HTTP サーバで、複数のドメイン名の Web サーバを兼ねていることがあ
+る。この機能を、仮想ホスト( バーチャルホスト、
+virtual host)と呼んでいる。
+
+</P><P>
+
+仮想ホストの実現方法には、2種類ある。
+
+<UL>
+<LI> IP ベース: 1つのサーバに複数の IP アドレスを持たせる。
+IP アドレスごとに違う内容を返す。
+<LI> 名前ベース: IPアドレスは同じ。要求の、「Host: 」行を見て、内容を
+切り替える。
+</UL>
+
+名前ベースの仮想ホストを使っているような Web サーバでは、HTTP の要求で、
+Host: という行も送信する必要がある。Host: がないと、エラーの応答
+<CODE lang="en">"HTTP/1.0 302 Found"</CODE> が返されることがある。
+
+
+
+<H3 id="http-response">HTTPの応答</H3>
+
+GET による要求に対して、サーバは、クライアントへ次のような応答メッセー
+ジを送り返す。
+
+<PRE class="program">
+HTTP/1.1 200 OK←↓
+Date: Thu, 18 Jun 2026 05:48:00 GMT←↓
+Server: Apache←↓
+Last-Modified: Wed, 27 May 2026 13:11:02 GMT←↓
+ETag: "755-652cc57f62f89"←↓
+Accept-Ranges: bytes←↓
+Content-Length: 1877←↓
+Connection: close←↓
+Content-Type: text/html←↓
+←↓  (空行)
+本文（HTML）
+</PRE>
+
+応答のうち、最初の行が、状態行（status line）と呼ばれる、要求が成功した
+か失敗したかわ表わしている行である。"200" とは、成功したという意味であ
+る（表３参照）。２行目から最初の空行（「←↓」だけの行）までは、応答メッ
+セージのヘッダである。応答メッセージのヘッダには、データの型や、サーバ
+のバージョン、データが更新された日付と時刻、バイト数などが記録されてい
+る。
+
+</P><P>
+
+応答で、最初の空行（「←↓」だけの行）の次が、データの本体である。この
+例では、HTMLで記述されたデータが返されている。サーバは、データ転送が完
+了すると、TCP/IP の通信路を切断する。
+
+</P><P>
+
+クライアントは、受け取ったデータを整形して利用者に対して表示する。たと
+えば、インライン・イメージとして指定されたデータを続けてサーバに要求し
+て展開したり、フォントを変えたりして表示する。
+
+<H3 id="http-telnet">telnetによるWWWサーバへのアクセス</H3>
+
+以下の例は、<A HREF="#telnet">telnet コマンド</A>を用いて coins の Web サーバをアクセスした例
+である。（注意：データは、更新されることがあるので、必ずしもこの通りの
+データが返されるとは限らない。）
+
+<PRE class="program">
+$ host www.coins.tsukuba.ac.jp
+www.coins.tsukuba.ac.jp is an alias for violet03.coins.tsukuba.ac.jp.
+violet03.coins.tsukuba.ac.jp has address 130.158.231.86
+violet03.coins.tsukuba.ac.jp has IPv6 address 2001:2f8:3a:1711::231:86
+$ grep '^http[[:blank:]].*/tcp' /etc/services
+http		80/tcp		www		# WorldWideWeb HTTP
+$ <STRONG>telnet www.coins.tsukuba.ac.jp 80↓</STRONG>
+Trying 2001:2f8:3a:1711::231:86...↓
+Connected to violet03.coins.tsukuba.ac.jp.↓
+Escape character is '^]'.↓
+<STRONG>GET /~syspro/ HTTP/1.0↓</STRONG>
+<STRONG>Host: www.coins.tsukuba.ac.jp↓</STRONG>
+<STRONG>↓</STRONG>
+HTTP/1.1 200 OK←↓
+Date: Thu, 18 Jun 2026 05:48:00 GMT←↓
+Server: Apache←↓
+Last-Modified: Wed, 27 May 2026 13:11:02 GMT←↓
+ETag: "755-652cc57f62f89"←↓
+Accept-Ranges: bytes←↓
+Content-Length: 1877←↓
+Connection: close←↓
+Content-Type: text/html←↓
+←↓
+&lt;HTML&gt;↓
+&lt;HEAD&gt;↓
+&lt;META HTTP-EQUIV="content-type" CONTENT="text/html;charset=utf-8"&gt;↓
+&lt;TITLE&gt; システムプログラム↓
+&lt;/TITLE&gt;↓
+&lt;STYLE TYPE="text/css"&gt;&lt;!--↓
+@import url("coins-syspro.css");↓
+--&gt;&lt;/STYLE&gt;↓
+&lt;/HEAD&gt;↓
+↓
+&lt;BODY&gt;↓
+↓
+&lt;H1&gt;&lt;A ID="title"&gt;システムプログラム&lt;/A&gt;&lt;/H1&gt;↓
+↓
+&lt;/P&gt;&lt;P&gt;↓
+↓
+&lt;H2&gt;&lt;A ID="2026/" HREF="2026/"&gt;■2026年&lt;/A&gt;&lt;/H2&gt;↓
+↓
+&lt;H2 ID="past"&gt;■以前の内容&lt;/H2&gt;↓
+↓
+&lt;UL&gt;↓
+&lt;LI&gt;&lt;A HREF="2025/"&gt;2025年&lt;/A&gt;↓
+&lt;LI&gt;&lt;A HREF="2024/"&gt;2024年&lt;/A&gt;↓
+...
+↓
+&lt;HR&gt;↓
+Last updated: 2025/06/17 10:49:25↓
+&lt;BR&gt;↓
+&lt;ADDRESS&gt; &lt;A HREF="http://www.cs.tsukuba.ac.jp/~yas/"&gt;Yasushi Shinjo&lt;/A&gt; / &amp;lt;yas@is.tsukuba.ac.jp&amp;gt; &lt;/ADDRESS&gt;↓
+&lt;/BODY&gt;↓
+&lt;/HTML&gt;↓
+Connection closed by foreign host.↓
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+</P><P>
+
+telnet で接続した後に、HTTP の要求メッセージを3行(空行含む)送っている。
+それに対して、<CODE lang="en">HTTP/1.1 200 OK</CODE> 以下が、HTTPの応答である。
+
+</P><P>
+
+<H3 id="http-request">HTTPのメソッド</H3>
+
+表２に、よく使われるHTTP で定義されている命令（メソッド）の例を示す。こ
+れらの命令に対して、サーバは、表３に定義されたような応答を行う。
+
+</P><P>
+
+
+<P id="Table:http-methods"><STRONG>表２　HTTPで定義されている命令（methods）の例</STRONG><BR>
+
+<PRE class="table">
+命令		説明
+--------------------------------------------------------------------
+GET		情報を得る（ヘッダと本体の両方）
+HEAD		情報のヘッダのみを得る
+POST		新しく情報を作る
+</PRE>
+</P>
+</A>
+
+
+
+<H3 id="http-request">HTTPの応答</H3>
+
+HTTPの応答では、次のようなコードがよく使われる。
+200番台は、エラーが無いことを意味する。
+
+
+<P id="Table:http-status"><STRONG>表３　HTTPで定義されている状態コードの例</STRONG><BR>
+
+<PRE class="table">
+状態コード	説明
+--------------------------------------------------------------------
+200		OK(エラーなし)
+301		要求されたデータが移動した
+302		見つからない
+303		別のページを見よ
+304		ページは変更されていない
+400		要求の形式にエラーがある
+401		ページの閲覧が承認されななかった
+403		アクセスが許されていない
+404		要求されたデータが見つからない
+500		サーバで内部エラーが起きた
+501		メソッドが実装されていない
+</PRE>
+</P>
+</A>
+
+
+
+</P><P>
+
+<H3 id="reference">参考</H3>
+
+<UL>
+<LI> <A HREF="./rfc2616.txt">RFC2616 Hypertext Transfer Protocol -- HTTP/1.1</A>
+</UL>
+
+<H2 id="details">細かい話</H2>
+
+最初は読み飛ばして良い。
+
+<H4><A id="tcpip">TCP/IP</A></H4>
+
+<A HREF="./tcpip.html">TCP/IP</A> は、TCP と IP という2つのプロトコルか
+らなる。TCP/IP 上の応用層と、IP データグラムを運ぶ物理層まで考えると、
+全体としては 4 層のプロトコル・スタックからなる。
+
+<H4><A id="tcpip-socket-api">ソケットAPI</A></H4>
+
+Unix 系のオペレーティング・システム上でTCP/IPを使うプログラムを開発する
+には、<A HREF="./socket-api.html">ソケットAPI</A>を用いる。
+
+システムプログラムの授業では、
+<A HREF="#tcp-api">tcp_connect()等のAPI</A>
+を利用することを勧める。
+
+<H4><A id="dns">DNS(Domain Name System)</A></H4>
+
+<A HREF="./dns.html">DNS</A> は、TCP/IP と共に使われる名前サービスであ
+る。
+
+DNS は、ホスト名を IP アドレスに変換するサービスを提供する。
+プログラムで利用するには、一般にはライブラリ関数
+
+<A HREF="./getaddrinfo.html">getaddrinfo()</A>
+
+を使う。
+
+システムプログラムの授業では、
+<A HREF="#tcp-api">tcp_connect()等のAPI</A>
+を利用することを勧める。
+
+
+<H4><A id="tcp_connect">tcp_connect()の詳細</A></H4>
+
+tcp_connect()
+は、<A HREF="#tcpip-connection-establish">通信路の開
+設</A>の仕事のうち、クライアント側の仕事をする関数である。
+
+システムプログラムの授業では、
+<A HREF="#tcp-api">利用方法</A>
+がわかれば十分である。
+興味がある人は、
+
+<A HREF="./tcp_connect.html">tcp_connect()の詳細</A>
+を見なさい。
+
+
+<H4><A id="fdopen_sock">fdopen_sock()の詳細</A></H4>
+
+fdopen_sock()
+
+は、TCP/IP による通信を、fprintf(), fgets(), fread() 等で
+行えるようにする関数である。
+
+システムプログラムの授業では、
+<A HREF="#tcp-api">利用方法</A>
+がわかれば十分である。
+興味がある人は、
+
+<A HREF="./fdopen_sock.html">fdopen_sock()の詳細</A>
+
+を見なさい。
+
+
+
+<H4><A id="marshaling">marshaling/unmarshaling</A></H4>
+
+TCP/IPでプログラムを作成する場合、メモリ中のデータ項目とネットワーク上を流れる
+データを対応づける必要がある。これを、
+<A HREF="./marshaling.html">marshaling/unmarshaling</A>という。
+
+</P><P>
+
+システムプログラムの授業では、主に次のデータを扱うことにし、
+marshaling/unmarshalingの問題を深くは取り扱わない。
+
+<UL>
+
+<LI> 文字列: 主にASCII コードで表現された文字データの並び。行単位なら、
+行末に<CODE lang="en">\n</CODE> や <CODE lang="en">\r\n</CODE> 等の<A HREF="./crlf.html">行末</A>を意味
+する制御文字を置く。C言語の
+
+<A HREF="../2026-06-03/index.html#sec:strings-library">文字列操作ライブラリ(前半第2回)</A>
+
+で操作できる。
+
+<LI> バイト列: 内容を解釈する必要がないバイトの並び。
+
+</UL>
+
+2バイト以上の整数では、
+
+<A HREF="./marshaling.html#byte-order">バイト・オーダ</A>
+
+の問題がある。
+
+</P><P>
+
+<H4><A id="http-23">SSL/TLS,HTTP/2,HTTP/3</A></H4>
+
+http:// ではなく https:// で始まる URL をアクセスする時、
+Web ブラウザは、
+
+<A HREF="https://www.coins.tsukuba.ac.jp/~yas/coins/literacy-2018/2018-05-22/index.html#ssl">SSL(Secure Sockets Layer)</A>
+
+を使う。
+
+SSL は、元々は、Netscape 社によって開発された、TCP/IP による通信路を暗号化する仕組み。HTTP に広く使われている(他にも使える)。
+
+SSL を IETF (Internet Engineering Task Force) により標準化したものが、
+TLS(Transport Layer Security)。
+単に SSL と言った時には、TLS を含んでいることが多い。
+
+</P><P>
+
+telnet コマンドで手で HTTP をしゃべり対話できるのは、http:// だけ。
+https:// の場合、telnet コマンドは使えない。
+<A href="#openssl-web">練習問題 openssl s_clientコマンド</A>
+を使えば、手で HTTP をしゃべり対話するこができる。
+
+</P><P>
+
+HTTP/2 は、HTTP/1.1 の改良で、1つのストリームを多重化して、複数の要求と
+応答を混在させて扱えるようにした。クライアントが要求していない
+資源をサーバ側が先に push する機能がある(不用なデータが送られることがある)。
+
+</P><P>
+
+HTTP/3 は、HTTP/2 の改良で、HTTP のメッセージを運ぶ通信路として TCP/IP
+(上の TLS) を, QUIC と呼ばれる仕組み
+<A HREF="tcpip.html#udp">UDP/IP</A> (上 の TLS) に置換ること
+で高速化している。
+
+</P><P>
+
+
+
+
+
+
+<H2 id="exercise">練習問題</H2>
+
+<H3 id="exercise-601">練習問題(601) telnetコマンドによるWebサーバへのアクセス</H3>
+
+
+</P><P>
+
+<A HREF="#tcpip">TCP/IPの基本的な考え方</A>、
+
+特に、
+
+<A HREF="#tcpip-connection-establish">通信路の開設</A>
+
+のクライアント側の動作を理解しなさい。クライアント・プロセスが
+tcp_connect() 関数を呼ぶことと、telnet コマンドを実行する時に与える引
+数の関係を理解しなさい。
+
+また、クライアント・プロセスが write(), read() システム・コールででメッ
+セージを送受信することと、telnet コマンド実行後にキーボードから打ち込
+む文字列や端末の表示の関係を理解しなさい。
+
+</P><P>
+
+<A HREF="#http-telnet">telnetによるWebサーバへのアクセス</A>と同様に
+<A HREF="#telnet">telnetコマンド</A>を使って、Web サーバに接続して
+HTML 等のテキストファイルを画面に表示しなさい。
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet <VAR>サーバ名</VAR> 80 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+<STRONG>接続後、キーボードからHTTPに従い要求メッセージを打ち込む。</STRONG>
+</PRE>
+
+たとえば、以下の例は、coins のユーザ syspro の
+ホーム・ページ
+<CODE lang="en">http://www.coins.tsukuba.ac.jp/~syspro/index.html</CODE>
+を得るための要求を示す。
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet www.coins.tsukuba.ac.jp 80 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+<STRONG>GET /~syspro/index.html HTTP/1.0</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+<STRONG>Host: www.coins.tsukuba.ac.jp</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+<IMG SRC="../icons/screen-return.gif" ALT="[←]">
+</PRE>
+
+最初の行は、空白で区切られた３つの部分がなること、
+最後に空行を打つことに
+注意しなさい。要求を打つと、問題がなければ画面には目的の HTML ファイル
+が表示される。
+
+</P><P>
+
+~syspro/ 以下の Web ページは、場所により様々な文字コードが
+使われている。
+ホーム・ページ(
+http://www.coins.tsukuba.ac.jp/~syspro/index.html
+)
+は、文字コードとして UTF-8 を用いている(2026年6月)。
+
+このページをtelnet コマンドで表示する時には、端末の文字コードとしては
+UTF-8 に設定すると良い。
+
+</P><P>
+
+実験には、<CODE lang="en">/~syspro/index.html</CODE> 以外で、英語や端末の文字コードと一
+致しているページを選ぶ方法もある。たとえば、自分のホームディレクトリ以
+下のファイル(~/public_html/file1.html) を作成したとする。
+これを Web ブラウザでアクセスするには、次のような URL を打ち込む。
+
+<UL>
+<LI> http://www.coins.tsukuba.ac.jp/~<VAR>自分のログイン名</VAR>/file1.html
+</UL>
+
+これを telnet でアクセスするには、次のように打ち込む。
+
+</P><P>
+
+<PRE class="interaction" lang="en">$ <STRONG>telnet www.coins.tsukuba.ac.jp 80 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+<STRONG>GET /~<VAR>自分のログイン名</VAR>/file1.html HTTP/1.0</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+<STRONG>Host: www.coins.tsukuba.ac.jp</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+<STRONG></STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+</PRE>
+
+</P><P>
+
+
+
+余裕があれば、次のことも行いなさい。
+
+<UL>
+<LI> Web サーバとしては、coins 以外のものにも接続してみなさい。
+<LI> 要求するファイルとして、<CODE lang="en">/index.html</CODE> 以外のものを指定してみなさい。
+<LI> <CODE lang="en">Host: </CODE> 行を付けた時と付けない時で動作が異なるような Web サイトを
+探しなさい。
+</UL>
+
+</P><P>
+
+
+<H3 id="exercise-602">練習問題(602) HTTP要求メッセージの作成</H3>
+
+
+
+</P><P>
+
+<A HREF="#exercise-601">練習問題(601) </A>で、キーボードからどのような文字列を打っ
+たのかを思い出しなさい。そして、それを fprintf() で stdout に表示するプログ
+ラムを作成しなさい。
+
+<PRE class="interaction" lang="en">$ <STRONG>./print-http-request-fixed <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+GET /index.html HTTP/1.0←↓
+Host: www.coins.tsukuba.ac.jp←↓
+←↓
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+注意: 画面には、「←↓」は表示されない。
+C言語では、「<CODE lang="en">\r\n</CODE>」である。
+<A HREF="#http-request">HTTPの要求</A>参照。
+
+</P><P>
+
+
+
+次のファイルをコピーして修正しても良い。
+
+<UL>
+<LI> ~syspro/public_html/2026/2026-07-08/print-http-request-fixed.c [<A HREF="print-http-request-fixed.c"><CODE lang="en">print-http-request-fixed.c</CODE></A>]
+</UL>
+
+注意1: この課題では、fgets() 等でキーボードから入力することはしない。出
+力するデータは、プログラムの中に埋めこまれたデータを使いなさい。
+
+</P><P>
+
+注意2: この課題では、printf() ではなく、fprintf() を使いなさい。そうす
+ると、ネットワーク通信を行うプログラムに改変する時に簡単になる。
+
+<H3 id="exercise-603">練習問題(603) HTTP要求メッセージの作成/引数付き</H3>
+
+
+
+
+<A HREF="#exercise-602">練習問題(602) </A>で、どの
+ホストに対してどのようなファイルを
+取るかを 
+<A HREF="../2026-06-10/index.html#argv">main の引数</A>
+で取れるようにしなさい。
+
+<PRE class="interaction" lang="en">$ <STRONG>./print-http-request www.example.com /index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+GET /index.html HTTP/1.0←↓
+Host: www.example.com←↓
+←↓
+$ <STRONG>./print-http-request www.coins.tsukuba.ac.jp /~syspro/index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+GET /~syspro/index.html HTTP/1.0←↓
+Host: www.coins.tsukuba.ac.jp←↓
+←↓
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+注意: 画面には、←↓ は表示されない。
+
+</P><P>
+
+次のファイルをコピーして修正しても良い。
+
+
+<UL>
+<LI> ~syspro/public_html/2026/2026-07-08/print-http-request.c [<A HREF="print-http-request.c"><CODE lang="en">print-http-request.c</CODE></A>]
+</UL>
+
+注意1: この課題では、fgets() 等でキーボードから入力することはしない。出
+力するデータは、main() の引数、または、プログラムの中に埋めこまれたデー
+タを使いなさい。
+
+</P><P>
+
+注意2: この課題では、printf() ではなく、fprintf() を使いなさい。そうす
+ると、ネットワーク通信を行うプログラムに改変する時に簡単になる。
+
+<DIV id="ex-http-client">
+<H3 id="exercise-604">練習問題(604) テキストを扱うHTTPクライアント</H3>
+</DIV>
+
+
+
+この課題を行なう前に、次の練習問題を先に解きなさい。
+
+<OL>
+<LI> <A HREF="#exercise-601">練習問題(601) </A>,
+<LI> <A HREF="#exercise-602">練習問題(602) </A>,
+<LI> <A HREF="#exercise-603">練習問題(603) </A>
+</OL>
+
+もしこのクライアントを作成する時に、
+<A HREF="#exercise-603">練習問題(603) </A>
+で作成した関数をそのまま利用するならば、
+<A HREF="#exercise-604">練習問題(604) </A>
+のレポートには、
+<A HREF="#exercise-603">練習問題(603) </A>
+の結果を含めなくてよい。使わないのであれば、
+<A HREF="#exercise-603">練習問題(603) </A>
+の結果も必ず含めななさい。
+
+</P><P>
+
+HTTPサーバに HTML 等のテキスト・ファイルを要求し、その内容を画面に表示
+するプログラムを作りなさい。このプログラムの名前を、wcat とする。
+
+</P><P>
+
+wcat コマンドは、次のように３つの引数を与えて利用するものとする。
+
+<PRE class="interaction" lang="en">$ <STRONG>./wcat host port file <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+（ここに、サーバから取得したテキストが表示される）
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+ここで、host は、ホスト名、port は、TCP/IP のポート番号、file は、得る
+べきファイル名である。これは、URL の文法で記述すると、次のようになる。
+
+</P><P>
+
+<PRE class="interaction" lang="en">http://host:port/file
+</PRE>
+
+</P><P>
+
+host で与えるものは、文字列のホスト名の他に IPv4 の IP アドレス、また
+は、IPv6 の IP アドレスでも受け付けるようにしなさい。たとえば、次のよ
+うに指定できるようにしなさい。
+
+<PRE class="interaction" lang="en">$ <STRONG>./wcat 130.158.231.86 port file <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>./wcat 2001:2f8:3a:1711::231:86 port file <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+これは
+<A HREF="#tcp-api">tcp_connect()</A>
+や
+<A HREF="./getaddrinfo.html">getaddrinfo()</A>
+を使うと比較的簡単に実現できる。
+
+</P><P>
+
+なお、wcat では、ポート番号の引数を省略しないものとする（省略可能なよ
+うに工夫してもよい）。HTTP プロトコルで用いられる標準のポート番号は、
+80である。
+
+</P><P>
+
+プログラム全体の構造は、次のようになる。
+
+</P><P>
+
+<OL>
+<LI> main() の引数を解析する。
+(<A HREF="#echo-client-fdopen-main">echo-client-fdopen-one.cのmain()</A>
+および、
+<A HREF="#exercise-603">練習問題(603) </A>
+を真似る。)
+<LI> ホスト名とポート番号を用いて、TCP/IPで通信路を作る。
+(<A HREF="#echo_client_one">echo-client-fdopen-one.cのecho_clien_one()</A>で、
+<A HREF="#tcp-api">tcp_connect() と fdopen_sock()</A>の使い方を参考にする。)
+
+<LI> HTTP で要求のヘッダを fprintf() で送信する。
+
+送信内容は、<A HREF="#exercise-603">練習問題(603) </A>と同じで、
+送信先が画面(stdout)ではなく、TCP/IP の通信路である。
+
+<LI> HTTP で応答のヘッダ、および、本文のテキストを fgets() で1行受信する。
+受信したメッセージを画面(stdout)へ fputs() や fprintf() で出力する。
+サーバからは、複数行送られてくるので、
+これらの受信と表示を、eof (end of file) になるまで繰り返す。
+
+</OL>
+
+読み込んだヘッダは、画面に表示してもよい。
+
+空行に続いて、本体を受信する。テキストのみを扱う場合、ヘッダと同じ方法
+で受信してもよい。受信した本文は、必ず画面(標準出力)に表示する。
+
+</P><P>
+
+プログラムをつくる時には、
+<A HREF="./crlf.html">行末の扱い(CR-LF)</A>に注意しないさい。
+HTTP では、行末は、<CODE lang="en">\n</CODE> ではなく <CODE lang="en">\r\n</CODE> となっていることが部分ある。
+空行も、<CODE lang="en">\n</CODE> ではなく <CODE lang="en">\r\n</CODE> となっている部分がある。
+
+</P><P>
+
+tcp_connect(), fdopen_sock() のソースコードは、
+<CODE lang="en">coins-syspro.c</CODE>
+に
+含まれている。それらの関数を使いたい時には、
+
+<A HREF="#notes-cp">cp コマンド(scpコマンド)でコピー</A>して使いなさい。
+自分が書くプログラムには、<CODE lang="en">#include "coins-syspro.c"</CODE>として参照すると良い。
+また、このファイルの内容は修正しないでそのまま使いなさい。
+提出するレポートには、<CODE lang="en">coins-syspro.c</CODE>の内容を<STRONG>含めない</STRONG>こと。
+
+
+<DIV id="wget">
+<H3 id="exercise-605">練習問題(605) wgetコマンドとcurlコマンド</H3>
+</DIV>
+
+wget は、URLを引数として取り、その資源をサーバから取得してファイルに保
+存するコマンドである。wget コマンドを使ってみなさい。
+
+<PRE class="interaction" lang="en">$ <STRONG>wget http://www.coins.tsukuba.ac.jp/~syspro/index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+詳しくは、man wget か、wget -h を実行しなさい。
+
+次のオプションを使ってみなさい。
+
+<DL>
+<DT> -d (--debug)
+<DD> デバッグ。HTTPの要求と応答を画面に出力する。
+<DT> --save-headers
+<DD> 応答メッセージも保存する。
+<DT> -c (--continue)
+<DD> 中断したダウンロードを再開する。
+</DL>
+
+curl コマンドも、wget と同様にURLを引数として取り、その資源をサーバから
+取得して、結果を標準出力に出力する。ファイルに出力するためには、
+シェルの入出の切り替え機能(&gt;)か、-o オプションを使う。
+
+<PRE class="interaction" lang="en">$ <STRONG>curl http://www.coins.tsukuba.ac.jp/~syspro/index.html > index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+<PRE class="interaction" lang="en">$ <STRONG>curl http://www.coins.tsukuba.ac.jp/~syspro/index.html -o index.html <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+詳しくは、man curl か、curl -h を実行しなさい。
+
+次のオプションを使ってみなさい。
+
+<DL>
+<DT> -D file (--dump-header file)
+<DD> 応答メッセージを file に保存する。
+<DT> -o file (--output file)
+<DD> 標準出力ではなく file に保存する。
+<DT> -C offset (--continue-at offset)
+<DD> 中断したダウンロードを offset バイトから再開する。
+"-C - -o file" と指定すると、-o で指定したファイルの続きから再開する。
+</DL>
+
+
+<H3 id="exercise-606">練習問題(606) HTTP応答メッセージの解析(ヘッダの表示)</H3>
+
+
+
+HTTPの応答メッセージを解析するプログラム http-response-header を作りな
+さい。
+
+http-response-header は、引数として指定されたファイルに含まれるHTTPのヘッ
+ダのみを表示するプログラムである。
+
+<PRE class="interaction" lang="en">$ <STRONG>./http-response-header file.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+（ここにヘッダ部分が表示される）
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+HTTPの応答のヘッダ部分は、複数行から構成される。ヘッダの終わりには
+空行がある。従って、空行が来るまで、ループして行単位でヘッダを読み込む。
+
+</P><P>
+
+このプログラムを作成する時に用いるデータは、
+<A HREF="#wget">wget コマンドやcurlコマンド</A>を用いて作成す
+ることができる。
+
+<PRE class="interaction" lang="en">$ <STRONG>wget --save-headers <VAR>URL</VAR> -O <VAR>file</VAR>.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+注意：wget の <CODE lang="en">-O</CODE> は、大文字である。
+小文字<CODE lang="en">-o</CODE> は、別の意味がある。
+
+wget のバージョンによっては、<CODE lang="en">--save-headers</CODE> の代わりに<CODE lang="en">-S</CODE>
+が使えることもある。
+
+</P><P>
+
+curl コマンドの場合は、ヘッダと本文を別々に取得し、cat コマンドで接合し
+て生成できる。
+
+<PRE class="interaction" lang="en">$ <STRONG>curl <VAR>URL</VAR> -D headers.txt -o content.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+$ <STRONG>cat headers.txt content.txt > file.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+</PRE>
+
+<H3 id="exercise-607">練習問題(607) HTTP応答メッセージの解析(本体の表示)</H3>
+
+
+
+<A HREF="#exercise-606">練習問題(606) </A>と同様に、HTTPの応答メッセー
+ジを解析するプログラムhttp-response-content を作りなさい。
+
+http-response-content は、引数として指定されたファイルに含まれるHTTPの
+本体のみを表示するプログラムである。
+
+<PRE class="interaction" lang="en">$ <STRONG>./http-response-content file.txt <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+（ここに本体部分が表示される）
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+
+<H3 id="exercise-608">練習問題(608) テキストを扱うHTTPクライアント(応答の解析)</H3>
+
+
+
+<A HREF="#exercise-604">練習問題(604) </A> に対して、次の機能を付加しなさい。
+
+<UL>
+
+<LI> HTTP の状態を解析する。
+
+<LI> <A HREF="#http-response">状態行(status line)</A>
+
+が 200 の時
+<UL>
+<LI> 
+HTTP のその他のヘッダは表示しない。
+空行の後の本文だけを表示する。
+
+<LI> プログラムを終了コード 0 で終了する。
+</UL>
+
+<LI> 状態行が 200 でない時
+<UL>
+<LI> 標準エラー出力に適切なエラーメッセージを表示する。
+<LI> サーバから送られてきたデータをすべて受信する。
+<LI> プログラムを終了コード 1 で終了する。
+</UL>
+
+</UL>
+
+</P><P>
+
+
+<H3 id="exercise-609">練習問題(609) バイナリを扱うHTTPクライアント</H3>
+
+
+
+
+<A HREF="#exercise-608">練習問題(608) </A>で、テキストだけでなくバイナリ・
+データを受け取り、また、受け取ったデータをファイルに保存するプログラム
+を作成しなさい。このプログラムの名前を、wsave とする。
+
+wcat コマンドは、次のように４つの引数を与えて利用するものとする。
+
+<PRE class="interaction" lang="en">$ <STRONG>./wsave host port file localfile <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+（画面には何も出力されない）
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+最初の3つの引数は、<A HREF="#exercise-604">練習問題(604) のwcat</A>と同じである。
+最後の引数は、保存するローカル・ファイルである。
+
+</P><P>
+
+このプログラムでは、本体部分ではバイナリデータを扱う必要がある。
+fdopen_sock() を使う場合、ヘッダについては、fgets() を使っ
+てデータを送受信してもよい。しかし、ヘッダが終わった後、本体部分では、
+fread() を使う必要がある。
+
+</P><P>
+
+本体をファイルに保存する部分は、
+<A HREF="../2026-06-10/index.html#sec:file-access2">前半第３回／ファイルアクセス（応用）</A>
+のプログラムと似たものになると思われる。
+ただし、コピー元は、ネットワークで、コピー先はファイルになる。
+
+fread() を使う場合には、入力したバイト数(読み込んだ要素の数)を調べ、
+そのバイト数の分を fwrite() 等でファイルに出力する。
+
+</P><P>
+
+HTTPの応答は、バッファ・サイズよりも大きくなる可能性がある。１回の
+fread() では受信できないことがある。そのため、すべてのデータを受信する
+まで、バッファ単位でループする必要がある。
+
+</P><P>
+
+また、fread() で文字列を読み込んだとしても、最後に 0 (NULL) で終端
+されないので、注意しなさい。
+
+</P><P>
+
+レポートには、
+<A HREF="#exercise-604">練習問題(604) </A>
+と同様の結果も含めなさい。
+
+もしこのクライアントを作成する時に、
+<A HREF="#exercise-603">練習問題(603) </A>
+で作成した関数をそのまま利用するならば、
+<A HREF="#exercise-609">練習問題(609) </A>
+のレポートには、
+<A HREF="#exercise-603">練習問題(603) </A>
+の結果を含めなくてよい。使わないのであれば、
+<A HREF="#exercise-603">練習問題(603) </A>
+の結果も必ず含めななさい。
+
+
+</P><P>
+
+<A HREF="#exercise-604">練習問題(604) </A>
+
+と同様に、テキストファイルが取得できることを、ls コマンドや cat コマン
+ドを使って示しなさい。さらに、バイナリ・ファイルが使えることを、ls コ
+マンド等で示しなさい。バイナリ・ファイルとしては、画像ファイル等を用い
+て、ファイルが壊れずに保存できたことを確認しなさい。あるいは、普通の
+Web ブラウザや
+
+<A HREF="#wget">wget コマンドやcurlコマンド</A>
+
+を用いて取得した結果と、作成した wsave の結果をsha1sum コマンドや cmp
+コマンドで比較しなさい。
+
+
+
+<H3 id="exercise-610">練習問題(610) 並列wsave</H3>
+
+<A HREF="#exercise-609">練習問題(609) </A>で、
+wget コマンドと同様に複数の URL を引
+数に取り、複数のファイルを並列にコピーするものを作成しなさい。ただし、
+並列度としては、最大ｎ（１＜ｎ＜＝３）とし、それ以上の URL が与えられ
+た時でも、その並列度の範囲内で同時にコピーするようにしなさい。
+
+</P><P>
+
+ヒント：最大ｎまで、fork() して、それぞれ子プロセスで１個のファイルを
+コピーする。子供が終了したら、次の子供を fork() する。
+
+</P><P>
+
+実行速度に差があるので、複数のプロセスに均等にURL をばらまく方法では最
+速にはならない。
+
+</P><P>
+
+<H3 id="exercise-611">練習問題(611) 中断・再開可能なwsave</H3>
+
+<A HREF="#exercise-609">練習問題(609) </A>で、
+（大きな）ファイルをコピーする時、中
+断する機能をつけなさい。中断とは、
+
+<A HREF="./rfc2616.txt">HTTP 1.1</A>で定義されている Range: の機能を
+使い、一度プログラムを<STRONG>終了</STRONG>しても、次に再開した時に続きを要
+求する機能である。
+
+</P><P>
+
+プログラムを終了した後でもう一度実行したときに続きを行う行うことができ
+るものだけをこの課題を満たしたと認める。プログラムを終了しないものは、
+この課題では中断とは認めない。
+
+この課題ではシグナルでプロセスを中断することは行わない。
+
+</P><P>
+
+wget コマンドは、-c オプション、
+curl コマンドは、-C オプションを指定すると、中断した続きから再開する。
+
+</P><P>
+
+<DIV id="smtp-client">
+<H3 id="exercise-612">練習問題(612) SMTPクライアントの作成</H3>
+</DIV>
+
+<A HREF="./smtp.html">SMTP</A>
+でメールを送信するプログラムを作成しなさい。
+
+</P><P>
+
+まず、telnet で、サーバに接続しなさい。そして、それぞれのプロトコルに従っ
+て、要求を打ち込み、どのような結果が返ってくるかを調べなさい。レポート
+には、この結果を含めなさい。
+
+</P><P>
+
+次に、telnet で行った要求の送信と結果の受信を行うようなプログラム
+
+<A HREF="./smtp.html#smtpput">smtpput</A>
+
+を作成しなさい。このページに記述されているように、このプログラムは、メー
+ルサーバ、送信元アドレス、送信先アドレスは、main() の引数から受け取りな
+さい。また、メール本文は、標準入力から受け取りなさい。
+
+</P><P>
+
+SMTP は、テキスト・ベースのプロトコルなので、全ての通信にfprintf() や
+fgets() を使ってもよい。
+
+</P><P>
+
+この課題では、必ずサーバからの応答を解析すること。エラーから生じた時に
+は、以後の処理を中止する機能を持つこと。
+
+</P><P>
+
+この課題では、fgets() でキーボードからデータを読み込むことはしてはなら
+ない。main() の引数で得られるパラメタ以外で、サーバに送るべきデータは、
+プログラムの内部で fprintf() や snprintf() 等を用いて作成すること。
+
+たとえば、"MAIL FROM:" や "RCPT TO:" などは、fprintf() のフォーマット文
+字列で指定する方法がある。キーボードや main() の引数として、本来プログ
+ラムで生成すべき文字列を与えてはならない。
+
+</P><P>
+
+接続先として次のホストを使いなさい。
+
+<UL>
+<LI> violet04.coins.tsukuba.ac.jp
+</UL>
+
+また、クライアントを実行する時には、coins の LAN 内(VPN含む)を使いなさ
+い。coins の LAN の外からアクセスすると、この SMTP サーバは(パスワード
+無しで)メールを受け付けない。
+
+</P><P>
+
+プログラムをつくる時には、
+<A HREF="./crlf.html">行末の扱い(CR-LF)にも注意しないさい</A>。
+
+</P><P>
+
+<H3 id="exercise-613">練習問題(613) NNTPPクライアントの作成</H3>
+
+
+
+</P><P>
+
+<A HREF="./nntp.html">NNTP</A>で、ネットワーク・ニュースの記事を取得し、
+画面に表示するプログラムを作成しなさい。
+
+</P><P>
+
+まず、telnet で、サーバに接続しなさい。そして、それぞれのプロトコルに従っ
+て、要求を打ち込み、どのような結果が返ってくるかを調べなさい。レポート
+には、この結果を含めなさい。
+
+次に、telnet で行った要求の送信と結果の受信を行うようなプログラム
+
+<A HREF="./nntp.html#nntp-client">nncat</A>
+
+を作成しなさい。このページに記述されているように、このプログラムは、
+必要なパラメタを main() の引数や標準入力から受け取りなさい。
+
+</P><P>
+
+NNTP は、テキスト・ベースのプロトコルなので、全ての通信にfprintf() や
+fgets() を使ってもよい。
+
+</P><P>
+
+注意1: この課題では、必ずサーバからの応答を解析すること。エラーから生じ
+た時には、以後の処理を中止する機能を持つこと。
+
+</P><P>
+
+注意2: この課題では、fgets() でキーボードからデータを読み込むことはして
+はならない。main() の引数で得られるパラメタ以外で、サーバに送るべきデー
+タは、プログラムの内部で fprintf() や snprintf() 等を用いて作成すること。
+
+たとえば、"GROUP " や "ARTICLE" などは、fprintf() のフォーマット文字列
+で指定する方法がある。キーボードや main() の引数として、本来プログラム
+で生成すべき文字列を与えてはならない。
+
+</P><P>
+
+接続先として次のホストを使いなさい。
+
+<UL>
+<LI> news.cs.tsukuba.ac.jp
+</UL>
+
+また、クライアントを実行する時には、coins の LAN 内(VPN含む)を使いなさ
+い。coins の LAN の外からアクセスすると、この NNTP サーバは、TCP による
+接続を受け付けない。
+
+</P><P>
+
+プログラムをつくる時には、
+<A HREF="./crlf.html">行末の扱い(CR-LF)にも注意しないさい</A>。
+
+<H3 id="exercise-614">練習問題(614) Time Protocol のクライアント</H3>
+
+<A HREF="./rfc868.txt">RFC868</A> に定義されている Time Protocol のクライアン
+ト(TCP) を作成しなさい。そして、date コマンドと類似の結果を表示しなさ
+い。
+
+<PRE class="interaction" lang="en">$ <STRONG>./time-client host 37 <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+Sun May 26 20:54:23 JST 2026
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+</P><P>
+
+このプログラムでは、TCP/IP でサーバに接続した後、何も送らずにサーバか
+ら４バイトの数を読み込む。その４バイトの数は、ネットワーク・バイト・オー
+ダになっているので、ntohl() で、ホストのバイト・オーダに変換する。この
+値に、ある値で補正して、Unix で使われているtime_t に変換する。最後に、
+strftime() や localtime() でカレンダーの形式に変換する。
+
+</P><P>
+
+RFC868 Time Protocol では、値は、1900年1月1日 0:00 (GMT) を基準にした
+秒数を返す。time() システムコールや gettimeofday() システムコールでは、
+1970 年を基準にしている。strftime() や localtime() 
+を使う前に、差分を補正する必要がある。
+
+</P><P>
+
+この課題では、ポート番号 37 の time を使いなさい。ポート番号 13 の
+daytime を使ってはならない。
+
+</P><P>
+
+接続先のホストとしては、次のどれかを使いなさい。
+
+<UL>
+<LI> azalea01-azalea30, jelly1-jelly10
+
+</UL>
+
+動作しない時は、
+<A HREF="https://www.open.coins.tsukuba.ac.jp/coins-status/">COINS Status</A>
+で、PC が動いているか、Linux が動いているかを確認しなさい。
+
+
+<H3 id="exercise-615">練習問題(615) サービス名によるポート番号</H3>
+
+上の <A HREF="#echo-client-fdopen-one.c">echo-client-fdopen-one.c</A> では、ポート番号を数で
+与えている。これを、サービス名によりポート番号が指定できるように書き換
+えなさい。
+
+<H3 id="exercise-616">練習問題(616) netstatコマンドとssコマンド</H3>
+
+netstat コマンドを使うと、その時利用されている結合(connection)を表示す
+ることができる。このコマンドを使って、ネットワークの利用状況を表示しな
+さい。
+
+</P><P>
+
+次のようなオプションがよく使わせる。
+<DL>
+<DT> <CODE lang="en">-a</CODE> (all)
+<DD> 全て。接続を待っているサーバのソケットも表示する。
+<DT> <CODE lang="en">-n</CODE> (number)
+<DD> ネットワークのアドレスを番号で表示する。
+</DL>
+
+Linux では netstat に加えて ss コマンドも使える。
+TCP/IP や UDP/IP の状態を調べるには、次のようなオプションを使うと良い。
+
+<DL>
+<DT> <CODE lang="en">-t</CODE> (TCP)
+<DD> TCP のソケットを表示
+<DT> <CODE lang="en">-u</CODE> (UDP)
+<DD> UDP のソケットを表示
+<DT> <CODE lang="en">-a</CODE> (all)
+<DD> 全て。TCP では、クライアント側も表示。
+<DT> <CODE lang="en">-n</CODE> (numeric)
+<DD> ポート番号をそのまま番号で表示する。
+</DL>
+
+
+<H3 id="exercise-617">練習問題(617) lsofコマンド</H3>
+
+lsof コマンドは、プロセスが開いているファイルを表示するコマンドであ
+る。-i オプションを付けると、ファイルではなくネットワーク (Internet) の
+利用状況が表示される。lsof -i を利用して、ネットワークの利用状況を表示
+しなさい。
+
+<H3 id="exercise-618">練習問題(618) WebブラウザによるHTTPの表示</H3>
+
+Web ブラウザには、開発者用の道具として、HTTP で送受信しているデータを表
+示する機能が利用可能になっていることがある。このような機能を利用してみ
+なさい。
+
+</P><P>
+
+多くのブラウザで、次のような方法で開発ツールを実行し、HTTP の要求と応答を表示できる。
+
+<OL>
+<LI> Web ページの何も表示されていない部分で
+コンテキストメニュー(右クリック)してメニューを表示する。
+<LI> メニューの中から、次のような項目を選ぶ。
+<UL>
+<LI> 調査
+<LI> 検証
+<LI> 要素の詳細
+</UL>
+
+<LI> 「ネットワーク」タブを開く。
+<LI> 「キャッシュを無効化」して「再読み込み」する。
+<LI> 左側でファイルを選ぶと、右側に HTTP の要求と応答が表示される。
+<LI> 右側で「ヘッダー」「Cookie」等と並んでいたら、「ヘッダー」を選ぶと、応答と要求のヘッダが表示される。
+<LI> 「生(raw)」の状態を表示させると、ヘッダがテキスト形式で表示される。
+</OL>
+
+
+</P><P>
+
+
+Firefox 開発ツールの「ネットワーク」
+<UL>
+<LI> メニューバー＞ツール＞ブラウザーツール＞Web開発ツールを表示する。
+または、ページの中の何もない所で、コンテキストメニュー(右クリック)＞「調査」を選ぶ。
+<LI> 「ネットワーク」タブを表示。
+<LI> 「キャッシュを無効化」して「再読み込み」する。
+<LI> 表示したい要求と応答をクリックして選ぶ。
+<LI> 右側に「ヘッダー」が表示される。ここで「生ヘッダ」ボタンを押すと、ブラウザが送受信したテキスト形式のヘッダが表示される。
+</UL>
+
+<A href="images/firefox-devtools-network-header-raw.png">
+<IMG SRC="images/firefox-devtools-network-header-raw.png" width="600" ALT="Firefox 開発ツール ネットワーク">
+(クリックで拡大)
+</A>
+<BR>
+図? Firefoxの開発ツール
+
+
+Google Chrome ディベロッパーツールの「ネットワーク」
+
+<UL>
+
+<LI> MacOSX では、一番上のメニューバーの「表示」＞「開発／管理」＞「ディ
+ベロッパーツール」でディベロッパーツールを表示する。
+または、ページの中の何もない所で、コンテキストメニュー(右クリック)＞「検証」を選ぶ。
+
+<LI> 「Network」タブを開く。
+<LI> (キャッシュ(閲覧履歴)をクリアする。)
+<LI> ページを開く。
+<LI> 左側から目的の HTML ファイルやその他のファイルを選ぶ。
+<LI> 「ヘッダー」タブの中の 次の項目を見る。
+<UL>
+<LI> 「リクエストヘッダー」の横の「Raw」を押す
+<LI> 「レスポンスヘッダー」の横の「Raw」を押す
+</UL>
+</UL>
+
+<A href="images/google-chrome-devtools-network-header-raw.png">
+<IMG SRC="images/google-chrome-devtools-network-header-raw.png" width="600" ALT="Google Chrome 開発ツール ネットワーク">
+(クリックで拡大)
+</A>
+<BR>
+図? Google Chromeの開発ツール
+
+<DIV id="openssl-web">
+<H3 id="exercise-619">練習問題(619) opensslコマンドによるWebサーバへのアクセス</H3>
+</DIV>
+
+openssl コマンドを使ってSSL 付きの Web サーバ (URL が https: で始まって
+いる)に接続して HTML 等のテキストファイルを画面に表示しなさい。
+https: では、ポート番号としては標準で 443 が使われる。
+
+<PRE class="interaction" lang="en">$ <STRONG>openssl s_client -connect <VAR>サーバ名</VAR>:<VAR>ポート番号</VAR> -quiet <IMG SRC="../icons/screen-return.gif" ALT="[←]"></STRONG>
+<STRONG>接続後、キーボードからHTTPに従い要求メッセージを打ち込む。</STRONG>
+</PRE>
+
+たとえば、以下の例は、coins のトップページの
+<CODE lang="en">https://www.coins.tsukuba.ac.jp/</CODE>
+を得るための要求を示す。
+
+</P><P>
+
+なお以下の例で、 <KBD>^M</KBD> は、Control+M、すなわち、リターン・キー(Enterキー)である。
+C言語の <CODE lang="en">&#39;\r&#39;</CODE> を意味する。
+端末でキーボードから単純に Control+M と打っても、<KBD>^J</KBD> 、すなわち、ラインフィード(ニューライン)(C言語の <CODE lang="en">&#39;\n&#39;</CODE>)と同じ扱いになる。
+こういう場合には、<KBD>^V</KBD> (Control+V) に続けて <KBD>^M</KBD> と打つと良い。
+<KBD>^V</KBD> は、端末で特殊なキーを打つためのキーで、<KBD>^M</KBD> だけでなく <KBD>^C</KBD> や <KBD>^D</KBD> を打ち込むためにも使える。
+
+<PRE class="program">
+$ <STRONG>openssl s_client -connect www.coins.tsukuba.ac.jp:443 -quiet</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+Connecting to 2001:2f8:3a:1711::231:86
+depth=3 C=JP, O=SECOM Trust Systems CO.,LTD., OU=Security Communication RootCA2^M
+verify return:1^M
+depth=2 C=JP, O=SECOM Trust Systems Co., Ltd., CN=SECOM TLS RSA Root CA 2024^M
+verify return:1^M
+depth=1 C=JP, O=SECOM Trust Systems Co., Ltd., CN=NII Open Domain CA - G8 RSA^M
+verify return:1^M
+depth=0 C=JP, ST=Ibaraki, L=Tsukuba, O=University of Tsukuba, CN=www.coins.tsukuba.ac.jp^M
+verify return:1^M
+<STRONG>GET / HTTP/1.0^M</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+<STRONG>Host: www.coins.tsukuba.ac.jp^M</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+<STRONG>^M</STRONG><IMG SRC="../icons/screen-return.gif" ALT="[←]">
+HTTP/1.1 200 OK^M
+Date: Thu, 02 Jul 2026 02:00:15 GMT^M
+Server: Apache^M
+X-Powered-By: PHP/8.2.32^M
+Link: <https://www.coins.tsukuba.ac.jp/wp-json/>; rel="https://api.w.org/", <https://www.coins.tsukuba.ac.jp/wp-json/wp/v2/pages/378>; rel="alternate"; title="JSON"; type="application/json", <https://www.coins.tsukuba.ac.jp/>; rel=shortlink^M
+Connection: close^M
+Content-Type: text/html; charset=UTF-8^M
+^M
+
+&lt;!DOCTYPE html&gt;
+&lt;html dir="ltr" lang="ja" prefix="og: https://ogp.me/ns#"&gt;
+
+
+
+&lt;head&gt;
+&lt;meta charset="UTF-8"&gt;
+&lt;meta http-equiv="X-UA-Compatible" content="IE=Edge, chrome=1"&gt;
+&lt;meta name="mobile-web-app-capable" content="yes"&gt;
+&lt;meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"&gt;
+&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+&lt;meta name="google-site-verification" content="EnRHzHoRO1VhJKNxavGiBMawFQBjuwYmNgnMFZ4Zj8A" /&gt;
+
+
+
+&lt;link rel="shortcut icon" href="https://www.coins.tsukuba.ac.jp/wp/wp-content/themes/coins/images/share/favicon.ico"&gt;
+&lt;link rel="stylesheet" href="https://www.coins.tsukuba.ac.jp/wp/wp-content/themes/coins/style.css"&gt;
+&lt;link rel="stylesheet" href="https://www.coins.tsukuba.ac.jp/wp/wp-content/themes/coins/print.css"&gt;
+&lt;link rel="alternate" type="application/rss+xml" title="筑波大学 情報学群 情報科学類" href="https://www.coins.tsukuba.ac.jp/feed/"&gt;
+&lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;
+&lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin&gt;
+&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100..900&amp;family=Noto+Serif+JP:wght@200..900&amp;display=swap"&gt;
+
+
+		&lt;!-- All in One SEO 4.9.7.2 - aioseo.com --&gt;
+		&lt;title&gt;筑波大学 情報学群 情報科学類 | 大切な仲間と最先端のカリキュラムを&lt;/title&gt;
+...
+&lt;/html&gt;$ <IMG SRC="../icons/screen-return.gif" ALT="[←]">
+$ <IMG SRC="../icons/screen-cursor.gif" ALT="[]">
+</PRE>
+
+
+
+<HR>
+Last updated: 2026/07/07 11:03:41
+ <BR>
+<ADDRESS> <A HREF="https://www.cs.tsukuba.ac.jp/~yas/">Yasushi Shinjo</A> / &lt;yas@cs.tsukuba.ac.jp&gt; </ADDRESS>
+</BODY>
+</HTML>
+
